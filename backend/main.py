@@ -410,9 +410,15 @@ def get_predictions(matchday_id: Optional[int] = None):
             # Check if this player's fixture is already played
             is_played = p["club"] in played_clubs or (club_code and club_code in played_clubs)
             
-            # Get actual fantasy points if match played
+            # Get actual fantasy points from snapshots or match_stats
             actual_pts = None
-            if is_played:
+            snap = conn.execute(
+                "SELECT matchday_points FROM player_snapshots WHERE player_id = ? AND matchday_id = ?",
+                (p["id"], md["id"])
+            ).fetchone()
+            if snap and snap["matchday_points"] is not None:
+                actual_pts = snap["matchday_points"]
+            elif is_played:
                 actual_row = conn.execute(
                     "SELECT fantasy_points FROM match_stats WHERE player_id = ? AND matchday_id = ?",
                     (p["id"], md["id"])

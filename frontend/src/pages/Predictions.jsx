@@ -95,15 +95,19 @@ export default function Predictions() {
               <span className="text-ucl-gold text-xs">€{p.price}M</span>
               <div className={`w-1.5 h-1.5 rounded-full ${riskDot[p.risk_level]}`}></div>
               {p.fixture_played ? (
-                <div className="text-right w-20">
-                  {p.actual_points != null ? (
-                    <div>
-                      <span className="text-base font-bold text-white">{p.actual_points}</span>
-                      <span className="text-[10px] text-gray-500 block">pred: {p.expected_points}</span>
-                    </div>
-                  ) : (
-                    <span className="text-base font-bold text-gray-500 line-through">{p.expected_points}</span>
-                  )}
+                <div className="text-right w-24 flex items-center gap-2 justify-end">
+                  <div className="text-right">
+                    <span className="text-[10px] text-gray-500 block">pred</span>
+                    <span className="text-xs text-gray-500">{p.expected_points}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] text-gray-400 block">fact</span>
+                    {p.actual_points != null ? (
+                      <span className={`text-base font-bold ${p.actual_points > p.expected_points ? 'text-ucl-green' : p.actual_points < p.expected_points ? 'text-ucl-red' : 'text-white'}`}>{p.actual_points}</span>
+                    ) : (
+                      <span className="text-base font-bold text-gray-600">—</span>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <>

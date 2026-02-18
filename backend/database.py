@@ -102,6 +102,16 @@ def init_db():
             UNIQUE(player_id, matchday_id)
         );
 
+        CREATE TABLE IF NOT EXISTS player_snapshots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            player_id INTEGER REFERENCES players(id),
+            matchday_id INTEGER REFERENCES matchdays(id),
+            total_points_before INTEGER DEFAULT 0,
+            total_points_after INTEGER,
+            matchday_points INTEGER,
+            UNIQUE(player_id, matchday_id)
+        );
+
         CREATE TABLE IF NOT EXISTS squads (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             matchday_id INTEGER REFERENCES matchdays(id),

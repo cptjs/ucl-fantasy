@@ -35,6 +35,17 @@ def import_players(json_path, db_path=DB_PATH):
 
     # Init tables if needed
     conn.executescript("""
+    CREATE TABLE IF NOT EXISTS player_snapshots (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        player_id INTEGER REFERENCES players(id),
+        matchday_id INTEGER REFERENCES matchdays(id),
+        total_points_before INTEGER DEFAULT 0,
+        total_points_after INTEGER,
+        matchday_points INTEGER,
+        UNIQUE(player_id, matchday_id)
+    );
+""")
+    conn.executescript("""
     CREATE TABLE IF NOT EXISTS players (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         uefa_id TEXT UNIQUE,
@@ -121,6 +132,16 @@ def import_players(json_path, db_path=DB_PATH):
     );
     """)
 
+    # Check if this is a re-import (players already exist)
+    existing_count = conn.execute("SELECT COUNT(*) FROM players").fetchone()[0]
+    is_reimport = existing_count > 0
+    
+    # If re-import, snapshot current points for active matchday
+    old_points = {}
+    if is_reimport:
+        for row in conn.execute("SELECT uefa_id, total_points FROM players").fetchall():
+            old_points[row[0]] = row[1]
+    
     # Clear existing players
     conn.execute("DELETE FROM players")
 
@@ -220,6 +241,31 @@ def import_players(json_path, db_path=DB_PATH):
     conn.commit()
     print(f"Imported {count} players")
 
+    # Calculate matchday points if re-importing
+    active_md = conn.execute("SELECT id FROM matchdays WHERE is_active=1").fetchone()
+    if is_reimport and old_points and active_md:
+        md_id = active_md[0]
+        updated = 0
+        for p in players:
+            uefa_id = str(p["id"])
+            new_pts = p.get("totPts", 0) or 0
+            old_pts = old_points.get(uefa_id, 0) or 0
+            md_pts = new_pts - old_pts
+            
+            row = conn.execute("SELECT id FROM players WHERE uefa_id=?", (uefa_id,)).fetchone()
+            if row:
+                conn.execute("""
+                    INSERT OR REPLACE INTO player_snapshots 
+                    (player_id, matchday_id, total_points_before, total_points_after, matchday_points)
+                    VALUES (?,?,?,?,?)
+                """, (row[0], md_id, old_pts, new_pts, md_pts))
+                updated += 1
+        conn.commit()
+        print(f"Updated matchday points for {updated} players")
+
+    # Create first-import snapshot (baseline)
+    # Will be finalized after matchday creation below
+
     # Create matchday and fixtures if we found any
     if fixture_data:
         conn.execute("UPDATE matchdays SET is_active = 0")
@@ -255,6 +301,20 @@ def import_players(json_path, db_path=DB_PATH):
 
         conn.commit()
         print(f"Created matchday with {len(fixture_data)} fixtures")
+
+        # Create baseline snapshots on first import
+        if not is_reimport:
+            for p in players:
+                uefa_id = str(p["id"])
+                row = conn.execute("SELECT id FROM players WHERE uefa_id=?", (uefa_id,)).fetchone()
+                if row:
+                    conn.execute("""
+                        INSERT OR IGNORE INTO player_snapshots 
+                        (player_id, matchday_id, total_points_before, total_points_after, matchday_points)
+                        VALUES (?,?,?,NULL,NULL)
+                    """, (row[0], md_id, p.get("totPts", 0) or 0))
+            conn.commit()
+            print("Created baseline snapshots")
 
     conn.close()
     print("Done!")
