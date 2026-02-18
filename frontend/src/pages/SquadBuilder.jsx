@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useLang } from '../App'
 import { Shield, Star, Crown, ChevronDown } from 'lucide-react'
+import ClubLogo from '../components/ClubLogo'
 
 const posColors = {
   GK: 'from-yellow-500 to-yellow-600',
@@ -162,7 +163,7 @@ export default function SquadBuilder() {
             <div className="flex-1">
               <div className="text-xs text-ucl-gold/70">{t('captain')} (×2 points)</div>
               <div className="text-lg font-bold text-white">{result.captain.name}</div>
-              <div className="text-xs text-gray-400">{result.captain.club} · {result.captain.position} · €{result.captain.price}M</div>
+              <div className="text-xs text-gray-400 flex items-center gap-1"><ClubLogo club={result.captain.club} size={14} /> {result.captain.club} · {result.captain.position} · €{result.captain.price}M</div>
             </div>
             <div className="text-right">
               <div className="text-2xl font-bold text-ucl-gold">{result.captain.expected_points.toFixed(1)}</div>

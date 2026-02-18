@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useLang } from '../App'
 import { Users, Calendar, Swords, TrendingUp, Star } from 'lucide-react'
+import ClubLogo from '../components/ClubLogo'
 
 export default function Dashboard() {
   const { t } = useLang()
@@ -71,8 +72,9 @@ export default function Dashboard() {
                   <div key={i} className={`flex items-center justify-between py-2 px-3 rounded-lg transition ${
                     isPlayed ? 'bg-gray-800/50 opacity-70' : isLive ? 'bg-green-900/30 border border-green-500/30' : 'bg-ucl-dark/30 hover:bg-ucl-dark/50'
                   }`}>
-                    <div className="flex-1 text-right">
+                    <div className="flex-1 text-right flex items-center justify-end gap-2">
                       <span className="text-sm font-medium text-white">{f.home_club}</span>
+                      <ClubLogo club={f.home_club} size={20} />
                     </div>
                     <div className="px-3 text-center min-w-[80px]">
                       {isPlayed || isLive ? (
@@ -88,7 +90,8 @@ export default function Dashboard() {
                         </div>
                       )}
                     </div>
-                    <div className="flex-1">
+                    <div className="flex-1 flex items-center gap-2">
+                      <ClubLogo club={f.away_club} size={20} />
                       <span className="text-sm font-medium text-white">{f.away_club}</span>
                     </div>
                   </div>

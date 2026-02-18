@@ -159,6 +159,14 @@ def get_matchdays():
         return [dict(r) for r in rows]
 
 
+@app.patch("/api/matchdays/{matchday_id}")
+def update_matchday(matchday_id: int, m: MatchdayCreate):
+    with db_session() as conn:
+        conn.execute("UPDATE matchdays SET name=?, stage=?, deadline=? WHERE id=?",
+                     (m.name, m.stage, m.deadline, matchday_id))
+        return {"status": "ok"}
+
+
 @app.post("/api/matchdays")
 def create_matchday(m: MatchdayCreate):
     with db_session() as conn:
@@ -237,6 +245,18 @@ def bulk_update_fixtures(updates: list[dict]):
                 params.append(fid)
                 conn.execute(f"UPDATE fixtures SET {', '.join(parts)} WHERE id = ?", params)
     return {"status": "ok"}
+
+
+# ─── Auto-fetch Results ───
+
+@app.post("/api/fetch-results")
+def fetch_results():
+    """Fetch latest match results from football-data.org."""
+    from fetch_results import fetch_and_update
+    import os
+    db_path = os.environ.get("DB_PATH", "/app/data/fantasy.db")
+    updated = fetch_and_update(db_path)
+    return {"updated": updated}
 
 
 # ─── Match Stats Import ───

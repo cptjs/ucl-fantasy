@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useLang } from '../App'
 import { ChevronDown, ChevronUp, ArrowUpDown, Search } from 'lucide-react'
+import ClubLogo from '../components/ClubLogo'
 
 const posColors = { GK: 'bg-yellow-500/20 text-yellow-400', DEF: 'bg-blue-500/20 text-blue-400', MID: 'bg-green-500/20 text-green-400', FWD: 'bg-red-500/20 text-red-400' }
 const confColor = { high: 'text-ucl-green', medium: 'text-yellow-400', low: 'text-ucl-red' }
@@ -87,6 +88,7 @@ export default function Predictions() {
             >
               <span className="text-gray-600 w-5 text-right text-xs">{i + 1}</span>
               <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${posColors[p.position]}`}>{p.position}</span>
+              <ClubLogo club={p.club} size={18} />
               <div className="flex-1 min-w-0">
                 <span className={`font-medium text-sm ${p.fixture_played ? 'text-gray-400' : 'text-white'}`}>{p.name}</span>
                 <span className="text-xs text-gray-500 ml-2">{p.club}</span>
@@ -94,27 +96,25 @@ export default function Predictions() {
               </div>
               <span className="text-ucl-gold text-xs">€{p.price}M</span>
               <div className={`w-1.5 h-1.5 rounded-full ${riskDot[p.risk_level]}`}></div>
-              {p.fixture_played ? (
-                <div className="text-right w-24 flex items-center gap-2 justify-end">
+              <div className="text-right flex items-center gap-2 justify-end min-w-[80px]">
+                <div className="text-right">
+                  <span className="text-[10px] text-gray-500 block">pred</span>
+                  <span className={`text-sm font-medium ${p.fixture_played ? 'text-gray-500' : 'text-ucl-accent font-bold'}`}>{p.expected_points}</span>
+                </div>
+                {p.fixture_played && (
                   <div className="text-right">
-                    <span className="text-[10px] text-gray-500 block">pred</span>
-                    <span className="text-xs text-gray-500">{p.expected_points}</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-[10px] text-gray-400 block">fact</span>
+                    <span className="text-[10px] text-ucl-accent block">fact</span>
                     {p.actual_points != null ? (
                       <span className={`text-base font-bold ${p.actual_points > p.expected_points ? 'text-ucl-green' : p.actual_points < p.expected_points ? 'text-ucl-red' : 'text-white'}`}>{p.actual_points}</span>
                     ) : (
-                      <span className="text-base font-bold text-gray-600">—</span>
+                      <span className="text-base font-bold text-yellow-500">—</span>
                     )}
                   </div>
-                </div>
-              ) : (
-                <>
-                  <span className="text-base font-bold text-ucl-accent w-12 text-right">{p.expected_points}</span>
+                )}
+                {!p.fixture_played && (
                   <span className="text-[10px] text-gray-500 w-10 text-right">{p.points_per_million}/M</span>
-                </>
-              )}
+                )}
+              </div>
               {expanded === i ? <ChevronUp size={14} className="text-gray-500" /> : <ChevronDown size={14} className="text-gray-500" />}
             </div>
             {expanded === i && (
