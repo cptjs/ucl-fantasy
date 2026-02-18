@@ -102,6 +102,33 @@ def init_db():
             UNIQUE(player_id, matchday_id)
         );
 
+        CREATE TABLE IF NOT EXISTS my_squad (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            player_id INTEGER REFERENCES players(id),
+            is_captain INTEGER DEFAULT 0,
+            is_vice_captain INTEGER DEFAULT 0,
+            is_starting INTEGER DEFAULT 1,
+            added_matchday INTEGER REFERENCES matchdays(id),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(player_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS transfers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            matchday_id INTEGER REFERENCES matchdays(id),
+            player_in_id INTEGER REFERENCES players(id),
+            player_out_id INTEGER REFERENCES players(id),
+            is_free INTEGER DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS boosters (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            used_matchday_id INTEGER,
+            is_available INTEGER DEFAULT 1
+        );
+
         CREATE TABLE IF NOT EXISTS player_snapshots (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             player_id INTEGER REFERENCES players(id),
@@ -125,6 +152,11 @@ def init_db():
         """)
         
         # Migration: add columns if missing (for existing DBs)
+        # Init boosters if empty
+        if conn.execute("SELECT COUNT(*) FROM boosters").fetchone()[0] == 0:
+            conn.execute("INSERT INTO boosters (name) VALUES ('wildcard')")
+            conn.execute("INSERT INTO boosters (name) VALUES ('limitless')")
+        
         try:
             conn.execute("ALTER TABLE fixtures ADD COLUMN kick_off TEXT")
         except:

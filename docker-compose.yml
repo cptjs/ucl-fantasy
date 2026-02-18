@@ -11,6 +11,7 @@ services:
       - fantasy-data:/app/data
     environment:
       - DB_PATH=/app/data/fantasy.db
+      - ADMIN_KEY=${ADMIN_KEY:-ucl-admin-2026}
 
 volumes:
   fantasy-data:

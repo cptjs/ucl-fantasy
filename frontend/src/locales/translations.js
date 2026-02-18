@@ -67,6 +67,16 @@ const translations = {
     live: "Live",
     actualPts: "Actual Pts",
     predicted: "Predicted",
+    myTeam: "My Team",
+    noSquad: "No squad set yet",
+    noSquadHint: "Use Squad Builder to plan, then set your team",
+    budgetLeft: "Budget Left",
+    transfers: "Transfers",
+    free: "free",
+    penalty: "Penalty",
+    transferSuggestions: "Transfer Suggestions",
+    setAsMyTeam: "Set as My Team",
+    squadSaved: "Squad saved as your team!",
   },
   ua: {
     title: "UCL Fantasy Асистент",
@@ -136,6 +146,16 @@ const translations = {
     live: "Наживо",
     actualPts: "Факт. бали",
     predicted: "Прогноз",
+    myTeam: "Моя команда",
+    noSquad: "Команда ще не створена",
+    noSquadHint: "Використай Підбір складу для планування, потім встанови свою команду",
+    budgetLeft: "Залишок",
+    transfers: "Трансфери",
+    free: "безк.",
+    penalty: "Штраф",
+    transferSuggestions: "Поради з трансферів",
+    setAsMyTeam: "Встановити як мою команду",
+    squadSaved: "Склад збережено як вашу команду!",
   }
 };
 

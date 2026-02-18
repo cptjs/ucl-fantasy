@@ -1,17 +1,19 @@
 import React, { useState, useEffect, createContext, useContext } from 'react'
-import { Trophy, Users, TrendingUp, Layers, Upload, Globe } from 'lucide-react'
+import { Trophy, Users, TrendingUp, Layers, Upload, Globe, UserCircle } from 'lucide-react'
 import translations from './locales/translations'
 import Dashboard from './pages/Dashboard'
 import Players from './pages/Players'
 import Predictions from './pages/Predictions'
 import SquadBuilder from './pages/SquadBuilder'
 import ImportData from './pages/ImportData'
+import MyTeam from './pages/MyTeam'
 
 const LangContext = createContext()
 export const useLang = () => useContext(LangContext)
 
 const tabs = [
   { id: 'dashboard', icon: Trophy },
+  { id: 'myTeam', icon: UserCircle },
   { id: 'players', icon: Users },
   { id: 'predictions', icon: TrendingUp },
   { id: 'squadBuilder', icon: Layers },
@@ -27,6 +29,7 @@ export default function App() {
 
   const pages = {
     dashboard: <Dashboard />,
+    myTeam: <MyTeam />,
     players: <Players />,
     predictions: <Predictions />,
     squadBuilder: <SquadBuilder />,

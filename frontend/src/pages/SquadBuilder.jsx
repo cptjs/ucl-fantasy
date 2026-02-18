@@ -204,6 +204,26 @@ export default function SquadBuilder() {
         </div>
       )}
 
+      {result && (
+        <button onClick={async () => {
+          const r = await fetch('/api/my-squad/set', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              player_ids: result.squad.map(p => p.player_id),
+              captain_id: result.captain.player_id,
+              vice_captain_id: result.squad.find(p => p.player_id !== result.captain.player_id && result.starting_xi.some(s => s.player_id === p.player_id))?.player_id || result.squad[1]?.player_id,
+              starting_ids: result.starting_xi.map(p => p.player_id),
+            })
+          })
+          if (r.ok) alert(t('squadSaved'))
+          else { const e = await r.json(); alert(e.detail) }
+        }}
+          className="w-full bg-ucl-green/20 hover:bg-ucl-green/30 text-ucl-green font-bold py-3 px-4 rounded-xl transition text-sm border border-ucl-green/30">
+          ✅ {t('setAsMyTeam')}
+        </button>
+      )}
+
       {!result && !loading && (
         <div className="text-center py-16 text-gray-500">
           <div className="text-4xl mb-3">⚽</div>

@@ -15,11 +15,16 @@ export default function ImportData() {
 
   const flash = (text, type = 'success') => { setMsg(text); setMsgType(type); setTimeout(() => setMsg(''), 5000) }
 
+  const [adminKey, setAdminKey] = useState(() => localStorage.getItem('ucl-admin-key') || '')
+
+  const saveAdminKey = (k) => { setAdminKey(k); localStorage.setItem('ucl-admin-key', k) }
+
   const uploadUefa = async (file) => {
+    if (!adminKey) { flash('❌ Enter admin key first', 'error'); return }
     setLoading(true)
     const fd = new FormData(); fd.append('file', file)
     try {
-      const r = await fetch('/api/players/import-uefa', { method: 'POST', body: fd })
+      const r = await fetch('/api/players/import-uefa', { method: 'POST', body: fd, headers: { 'X-Admin-Key': adminKey } })
       const d = await r.json()
       if (r.ok) flash(`✅ Imported ${d.players} players, ${d.fixtures} fixtures`)
       else flash(`❌ ${d.detail || 'Error'}`, 'error')
@@ -29,7 +34,7 @@ export default function ImportData() {
 
   const clearPlayers = async () => {
     if (!confirm('Delete all players and start fresh?')) return
-    await fetch('/api/players', { method: 'DELETE' })
+    await fetch('/api/players', { method: 'DELETE', headers: { 'X-Admin-Key': adminKey } })
     flash('🗑️ All data cleared')
   }
 
@@ -64,6 +69,14 @@ export default function ImportData() {
           </div>
         </div>
       )}
+
+      {/* Admin Key */}
+      <div className="bg-ucl-blue/20 border border-ucl-accent/10 rounded-xl p-4">
+        <label className="text-xs text-gray-400 mb-2 block">🔑 Admin Key</label>
+        <input type="password" value={adminKey} onChange={e => saveAdminKey(e.target.value)}
+          placeholder="Enter admin key..."
+          className="w-full bg-ucl-dark border border-ucl-accent/20 rounded-lg px-3 py-2 text-sm focus:border-ucl-accent focus:outline-none" />
+      </div>
 
       {/* UEFA JSON Import */}
       <div className="bg-gradient-to-br from-ucl-blue/40 to-ucl-blue/20 border border-ucl-accent/20 rounded-xl p-6 space-y-4">
