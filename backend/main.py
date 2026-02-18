@@ -459,9 +459,6 @@ def optimize(req: OptimizeRequest):
     """Build optimal squad from predictions. Excludes players from already-played fixtures."""
     preds_raw = get_predictions(req.matchday_id)
 
-    # Filter out players whose fixtures have already been played
-    available = [p for p in preds_raw if not p.get("fixture_played", False)]
-
     predictions = [
         Prediction(
             player_id=p["player_id"],
@@ -475,7 +472,7 @@ def optimize(req: OptimizeRequest):
             risk_level=p["risk_level"],
             reasoning=p["reasoning"],
         )
-        for p in available
+        for p in preds_raw
     ]
 
     constraints = SquadConstraints(

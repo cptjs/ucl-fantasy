@@ -135,11 +135,6 @@ export default function SquadBuilder() {
       </div>
 
       {error && <p className="text-ucl-red text-sm text-center bg-ucl-red/10 rounded-xl py-3">{error}</p>}
-      
-      <div className="bg-blue-900/20 border border-blue-500/20 rounded-xl px-4 py-2.5 text-xs text-blue-300 flex items-center gap-2">
-        <span>ℹ️</span>
-        <span>{t('playedExcluded')}</span>
-      </div>
 
       {result && (
         <div className="space-y-6">
