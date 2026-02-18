@@ -77,6 +77,9 @@ const translations = {
     transferSuggestions: "Transfer Suggestions",
     setAsMyTeam: "Set as My Team",
     squadSaved: "Squad saved as your team!",
+    buildTeam: "Build Team",
+    editTeam: "Edit Team",
+    saveTeam: "Save Team",
   },
   ua: {
     title: "UCL Fantasy Асистент",
@@ -156,6 +159,9 @@ const translations = {
     transferSuggestions: "Поради з трансферів",
     setAsMyTeam: "Встановити як мою команду",
     squadSaved: "Склад збережено як вашу команду!",
+    buildTeam: "Зібрати команду",
+    editTeam: "Редагувати",
+    saveTeam: "Зберегти команду",
   }
 };
 

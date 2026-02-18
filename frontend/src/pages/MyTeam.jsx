@@ -155,16 +155,222 @@ export default function MyTeam() {
 
   if (loading) return <div className="text-center py-20 text-gray-500">Loading...</div>
 
+  // ─── Build Mode ───
+  const [buildMode, setBuildMode] = useState(false)
+  const [buildSquad, setBuildSquad] = useState([]) // [{player_id, name, club, position, price, ...}]
+  const [buildSearch, setBuildSearch] = useState('')
+  const [buildPos, setBuildPos] = useState('')
+  const [buildResults, setBuildResults] = useState([])
+  const [buildCaptain, setBuildCaptain] = useState(null)
+
+  const REQUIRED = { GK: 2, DEF: 5, MID: 5, FWD: 3 }
+
+  const buildCounts = () => {
+    const c = { GK: 0, DEF: 0, MID: 0, FWD: 0 }
+    buildSquad.forEach(p => c[p.position]++)
+    return c
+  }
+
+  const buildBudget = () => 100 - buildSquad.reduce((s, p) => s + p.price, 0)
+
+  const searchPlayers = (query, pos) => {
+    let url = '/api/players?'
+    if (pos) url += `position=${pos}&`
+    fetch(url).then(r => r.json()).then(data => {
+      const ids = new Set(buildSquad.map(p => p.id || p.player_id))
+      let filtered = data.filter(p => !ids.has(p.id))
+      if (query) filtered = filtered.filter(p => 
+        p.name.toLowerCase().includes(query.toLowerCase()) || p.club.toLowerCase().includes(query.toLowerCase())
+      )
+      setBuildResults(filtered.slice(0, 30))
+    })
+  }
+
+  useEffect(() => {
+    if (buildMode) searchPlayers(buildSearch, buildPos)
+  }, [buildSearch, buildPos, buildSquad.length, buildMode])
+
+  const addToBuild = (player) => {
+    const counts = buildCounts()
+    if (counts[player.position] >= REQUIRED[player.position]) return
+    if (buildSquad.length >= 15) return
+    if (player.price > buildBudget()) return
+    // Club limit
+    const clubCount = buildSquad.filter(p => p.club === player.club).length
+    if (clubCount >= 3) return
+    setBuildSquad([...buildSquad, { ...player, player_id: player.id }])
+  }
+
+  const removeFromBuild = (playerId) => {
+    setBuildSquad(buildSquad.filter(p => (p.id || p.player_id) !== playerId))
+    if (buildCaptain === playerId) setBuildCaptain(null)
+  }
+
+  const saveBuildSquad = async () => {
+    if (buildSquad.length !== 15) { setMsg('❌ Need exactly 15 players'); return }
+    if (!buildCaptain) { setMsg('❌ Select a captain'); return }
+    
+    // Auto-pick starting XI: best 11 (1GK, 3+DEF, 2+MID, 1+FWD)
+    const byPos = { GK: [], DEF: [], MID: [], FWD: [] }
+    buildSquad.forEach(p => byPos[p.position].push(p))
+    
+    const starting = []
+    starting.push(byPos.GK[0])
+    starting.push(...byPos.DEF.slice(0, 3))
+    starting.push(...byPos.MID.slice(0, 2))
+    starting.push(...byPos.FWD.slice(0, 1))
+    // Fill remaining 4
+    const remaining = buildSquad.filter(p => !starting.includes(p))
+    remaining.sort((a, b) => (b.avg_points || 0) - (a.avg_points || 0))
+    for (const p of remaining) {
+      if (starting.length >= 11) break
+      if (p.position === 'GK') continue
+      starting.push(p)
+    }
+
+    const r = await fetch('/api/my-squad/set', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        player_ids: buildSquad.map(p => p.id || p.player_id),
+        captain_id: buildCaptain,
+        vice_captain_id: starting.find(p => (p.id || p.player_id) !== buildCaptain)?.id || starting.find(p => (p.id || p.player_id) !== buildCaptain)?.player_id,
+        starting_ids: starting.map(p => p.id || p.player_id),
+      })
+    })
+    if (r.ok) {
+      setMsg('✅ Team saved!')
+      setBuildMode(false)
+      loadSquad()
+    } else {
+      const e = await r.json()
+      setMsg(`❌ ${e.detail}`)
+    }
+    setTimeout(() => setMsg(''), 5000)
+  }
+
+  // ─── Build Mode UI ───
+  if (buildMode) {
+    const counts = buildCounts()
+    return (
+      <div className="space-y-4">
+        {msg && <div className={`text-sm px-4 py-3 rounded-xl ${msg.startsWith('✅') ? 'bg-ucl-green/20 text-ucl-green' : 'bg-ucl-red/20 text-ucl-red'}`}>{msg}</div>}
+        
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-white">🏗️ {t('buildTeam')}</h2>
+          <button onClick={() => setBuildMode(false)} className="text-sm text-gray-400 hover:text-white">✕ Cancel</button>
+        </div>
+
+        {/* Progress */}
+        <div className="grid grid-cols-6 gap-2">
+          {Object.entries(REQUIRED).map(([pos, need]) => (
+            <div key={pos} className={`rounded-lg px-3 py-2 text-center text-sm font-bold ${
+              counts[pos] === need ? 'bg-ucl-green/20 text-ucl-green' : 'bg-ucl-blue/30 text-gray-400'
+            }`}>
+              {pos} {counts[pos]}/{need}
+            </div>
+          ))}
+          <div className={`rounded-lg px-3 py-2 text-center text-sm font-bold ${
+            buildSquad.length === 15 ? 'bg-ucl-green/20 text-ucl-green' : 'bg-ucl-blue/30 text-white'
+          }`}>
+            {buildSquad.length}/15
+          </div>
+          <div className={`rounded-lg px-3 py-2 text-center text-sm font-bold ${
+            buildBudget() < 0 ? 'bg-ucl-red/20 text-ucl-red' : 'bg-ucl-gold/20 text-ucl-gold'
+          }`}>
+            €{buildBudget().toFixed(1)}M
+          </div>
+        </div>
+
+        {/* Selected players */}
+        {buildSquad.length > 0 && (
+          <div className="space-y-1">
+            {['GK','DEF','MID','FWD'].map(pos => {
+              const players = buildSquad.filter(p => p.position === pos)
+              if (!players.length) return null
+              return (
+                <div key={pos} className="flex flex-wrap gap-1">
+                  {players.map(p => (
+                    <div key={p.id || p.player_id} 
+                      className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs ${posBadge[pos]} border border-current/20 ${
+                        buildCaptain === (p.id || p.player_id) ? 'ring-2 ring-ucl-gold' : ''
+                      }`}>
+                      <ClubLogo club={p.club} size={14} />
+                      <span className="font-medium text-white">{p.name.split(' ').pop()}</span>
+                      <span className="text-gray-500">€{p.price}M</span>
+                      <button onClick={() => { 
+                        const pid = p.id || p.player_id;
+                        buildCaptain === pid ? setBuildCaptain(null) : setBuildCaptain(pid)
+                      }} className={`text-[10px] px-1 rounded ${buildCaptain === (p.id || p.player_id) ? 'bg-ucl-gold text-black font-bold' : 'text-gray-500 hover:text-ucl-gold'}`}>
+                        C
+                      </button>
+                      <button onClick={() => removeFromBuild(p.id || p.player_id)} className="text-gray-500 hover:text-ucl-red">✕</button>
+                    </div>
+                  ))}
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Search */}
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+            <input value={buildSearch} onChange={e => setBuildSearch(e.target.value)} placeholder="Search player or club..."
+              className="w-full bg-ucl-dark border border-ucl-accent/20 rounded-lg pl-9 pr-3 py-2 text-sm focus:border-ucl-accent focus:outline-none" />
+          </div>
+          <div className="flex rounded-lg overflow-hidden border border-ucl-accent/20">
+            <button onClick={() => setBuildPos('')} className={`px-3 py-2 text-xs font-medium ${!buildPos ? 'bg-ucl-accent text-ucl-dark' : 'bg-ucl-dark text-gray-400'}`}>All</button>
+            {['GK','DEF','MID','FWD'].map(p => (
+              <button key={p} onClick={() => setBuildPos(buildPos === p ? '' : p)}
+                className={`px-3 py-2 text-xs font-medium ${buildPos === p ? 'bg-ucl-accent text-ucl-dark' : 'bg-ucl-dark text-gray-400'}`}>{p}</button>
+            ))}
+          </div>
+        </div>
+
+        {/* Player list */}
+        <div className="space-y-1 max-h-[40vh] overflow-y-auto">
+          {buildResults.map(p => {
+            const counts2 = buildCounts()
+            const canAdd = buildSquad.length < 15 && counts2[p.position] < REQUIRED[p.position] && p.price <= buildBudget() && buildSquad.filter(s => s.club === p.club).length < 3
+            return (
+              <button key={p.id} onClick={() => canAdd && addToBuild(p)} disabled={!canAdd}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition ${canAdd ? 'hover:bg-ucl-accent/10' : 'opacity-30'}`}>
+                <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${posBadge[p.position]}`}>{p.position}</span>
+                <ClubLogo club={p.club} size={18} />
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm text-white font-medium truncate block">{p.name}</span>
+                  <span className="text-xs text-gray-500">{p.club}</span>
+                </div>
+                <span className="text-sm font-bold text-ucl-gold">€{p.price}M</span>
+                <span className="text-xs text-gray-500">{p.avg_points || 0} avg</span>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Save */}
+        {buildSquad.length === 15 && buildCaptain && (
+          <button onClick={saveBuildSquad}
+            className="w-full bg-ucl-green/20 hover:bg-ucl-green/30 text-ucl-green font-bold py-3 rounded-xl transition border border-ucl-green/30">
+            ✅ {t('saveTeam')}
+          </button>
+        )}
+      </div>
+    )
+  }
+
   if (!data || data.squad.length === 0) {
     return (
       <div className="text-center py-16 space-y-4">
         <div className="text-5xl">👤</div>
         <p className="text-gray-400 text-lg">{t('noSquad')}</p>
         <p className="text-gray-500 text-sm">{t('noSquadHint')}</p>
-        <p className="text-gray-600 text-xs mt-4">
-          Use Squad Builder to find your optimal squad, then set it via API:<br/>
-          <code className="bg-ucl-dark px-2 py-1 rounded text-ucl-accent">POST /api/my-squad/set</code>
-        </p>
+        <button onClick={() => setBuildMode(true)}
+          className="mt-4 bg-ucl-accent hover:bg-ucl-accent/80 text-ucl-dark font-bold py-3 px-6 rounded-xl transition">
+          🏗️ {t('buildTeam')}
+        </button>
       </div>
     )
   }
@@ -275,7 +481,11 @@ export default function MyTeam() {
       </div>
 
       {/* Actions */}
-      <div className="flex gap-3">
+      <div className="flex gap-3 flex-wrap">
+        <button onClick={() => { setBuildSquad(data.squad.map(s => ({...s, id: s.player_id}))); setBuildCaptain(captain?.player_id); setBuildMode(true) }}
+          className="flex items-center gap-2 px-4 py-2.5 bg-ucl-blue/30 hover:bg-ucl-blue/50 text-white rounded-xl text-sm font-medium transition border border-ucl-accent/20">
+          ✏️ {t('editTeam')}
+        </button>
         <button onClick={loadSuggestions}
           className="flex items-center gap-2 px-4 py-2.5 bg-ucl-accent/20 hover:bg-ucl-accent/30 text-ucl-accent rounded-xl text-sm font-medium transition">
           <Zap size={16} /> {t('transferSuggestions')}
