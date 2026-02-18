@@ -161,8 +161,6 @@ export default function MyTeam() {
     })
   }
 
-  if (loading) return <div className="text-center py-20 text-gray-500">Loading...</div>
-
   const REQUIRED = { GK: 2, DEF: 5, MID: 5, FWD: 3 }
 
   const buildCounts = () => {
@@ -178,9 +176,9 @@ export default function MyTeam() {
   const searchPlayers = (query, pos) => {
     let url = '/api/players?'
     if (pos) url += `position=${pos}&`
-    fetch(url).then(r => r.json()).then(data => {
+    fetch(url).then(r => r.json()).then(players => {
       const ids = new Set(buildSquad.map(p => p.id || p.player_id))
-      let filtered = data.filter(p => !ids.has(p.id))
+      let filtered = players.filter(p => !ids.has(p.id))
       if (query) filtered = filtered.filter(p => 
         p.name.toLowerCase().includes(query.toLowerCase()) || p.club.toLowerCase().includes(query.toLowerCase())
       )
@@ -191,6 +189,8 @@ export default function MyTeam() {
   useEffect(() => {
     if (buildMode) searchPlayers(buildSearch, buildPos)
   }, [buildSearch, buildPos, buildSquad.length, buildMode])
+
+  if (loading) return <div className="text-center py-20 text-gray-500">Loading...</div>
 
   const addToBuild = (player) => {
     const counts = buildCounts()
