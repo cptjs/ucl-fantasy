@@ -1,0 +1,16 @@
+version: "3.8"
+
+services:
+  ucl-fantasy:
+    build: .
+    container_name: ucl-fantasy
+    restart: unless-stopped
+    ports:
+      - "80:8000"
+    volumes:
+      - fantasy-data:/app/data
+    environment:
+      - DB_PATH=/app/data/fantasy.db
+
+volumes:
+  fantasy-data:

@@ -1,0 +1,32 @@
+name,club,position,price,is_starter,is_set_piece_taker,injury_status
+Thibaut Courtois,Real Madrid,GK,6.0,1,0,fit
+Mike Maignan,AC Milan,GK,5.5,1,0,fit
+Gianluigi Donnarumma,PSG,GK,5.5,1,0,fit
+Jan Oblak,Atletico Madrid,GK,5.5,1,0,fit
+Diogo Costa,Porto,GK,4.5,1,0,fit
+Antonio Rüdiger,Real Madrid,DEF,5.5,1,0,fit
+Virgil van Dijk,Liverpool,DEF,6.5,1,0,fit
+William Saliba,Arsenal,DEF,6.0,1,0,fit
+Jules Koundé,Barcelona,DEF,5.5,1,0,fit
+Alphonso Davies,Bayern Munich,DEF,5.5,1,0,fit
+Theo Hernández,AC Milan,DEF,5.5,1,1,fit
+Trent Alexander-Arnold,Liverpool,DEF,6.0,1,1,fit
+João Cancelo,Barcelona,DEF,5.5,1,0,fit
+Dayot Upamecano,Bayern Munich,DEF,5.0,1,0,fit
+Alessandro Bastoni,Inter Milan,DEF,5.5,1,0,fit
+Jude Bellingham,Real Madrid,MID,10.0,1,0,fit
+Florian Wirtz,Bayer Leverkusen,MID,8.0,1,1,fit
+Phil Foden,Manchester City,MID,9.0,1,0,fit
+Jamal Musiala,Bayern Munich,MID,9.0,1,0,fit
+Pedri,Barcelona,MID,7.5,1,0,fit
+Bruno Fernandes,Manchester United,MID,7.0,1,1,fit
+Federico Valverde,Real Madrid,MID,7.0,1,0,fit
+Bukayo Saka,Arsenal,MID,8.5,1,1,fit
+Martin Ødegaard,Arsenal,MID,7.5,1,1,fit
+Lamine Yamal,Barcelona,MID,7.5,1,0,fit
+Vinícius Júnior,Real Madrid,FWD,10.5,1,0,fit
+Erling Haaland,Manchester City,FWD,11.0,1,0,fit
+Kylian Mbappé,Real Madrid,FWD,11.0,1,1,fit
+Robert Lewandowski,Barcelona,FWD,9.0,1,1,fit
+Mohamed Salah,Liverpool,FWD,10.0,1,1,fit
+Harry Kane,Bayern Munich,FWD,10.5,1,1,fit
