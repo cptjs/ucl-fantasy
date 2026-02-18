@@ -1,35 +1,34 @@
 import React from 'react'
 
-// UEFA team logo CDN pattern - uses club short codes
-// Fallback: show club code text badge
+// UEFA team logo CDN - verified IDs from uefa.com/uefachampionsleague/clubs/
 const LOGO_MAP = {
-  // Map club names and codes to UEFA image IDs
   'Real Madrid': 50051, 'RMA': 50051,
   'Barcelona': 50080, 'BAR': 50080,
   'Bayern München': 50037, 'BAY': 50037,
   'Liverpool': 7889, 'LIV': 7889,
   'Paris': 52747, 'PSG': 52747,
   'Man City': 52919, 'MCI': 52919,
-  'Inter': 46, 'INT': 46,
-  'B. Dortmund': 50064, 'BVB': 50064,
+  'Inter': 50138, 'INT': 50138,
+  'B. Dortmund': 52758, 'BVB': 52758,
   'Juventus': 50139, 'JUV': 50139,
   'Atleti': 50124, 'ATM': 50124,
   'Arsenal': 52280, 'ARS': 52280,
-  'Leverkusen': 50046, 'LEV': 50046,
+  'Leverkusen': 50109, 'LEV': 50109,
   'Benfica': 50147, 'BEN': 50147,
-  'Monaco': 50069, 'MON': 50069,
-  'Atalanta': 52907, 'ATA': 52907,
+  'Monaco': 50023, 'MON': 50023,
+  'Atalanta': 52816, 'ATA': 52816,
   'Club Brugge': 50043, 'BRU': 50043,
-  'Newcastle': 52267, 'NEW': 52267,
-  'Galatasaray': 50136, 'GAL': 50136,
-  'Olympiacos': 50137, 'OLY': 50137,
+  'Newcastle': 59324, 'NEW': 59324,
+  'Galatasaray': 50067, 'GAL': 50067,
+  'Olympiacos': 2610, 'OLY': 2610,
   'Sporting CP': 50149, 'SPO': 50149,
-  'Bodø/Glimt': 2016968, 'BOD': 2016968,
-  'Qarabağ': 457428, 'QAR': 457428,
+  'Bodø/Glimt': 59333, 'BOD': 59333,
+  'Qarabağ': 60609, 'QAR': 60609,
   'AC Milan': 50058, 'MIL': 50058,
-  'Feyenoord': 50062, 'FEY': 50062,
-  'Celtic': 50184, 'CEL': 50184,
-  'PSV': 50065, 'PSV': 50065,
+  'Chelsea': 52914, 'CHE': 52914,
+  'Tottenham': 1652, 'TOT': 1652,
+  'Celtic': 50050, 'CEL': 50050,
+  'PSV': 50062, 'PSV': 50062,
 }
 
 function getLogoUrl(club) {
