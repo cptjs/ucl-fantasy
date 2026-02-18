@@ -292,6 +292,9 @@ def get_my_squad():
         
         # Get transfer info for active matchday
         md = conn.execute("SELECT * FROM matchdays WHERE is_active=1").fetchone()
+        stage = md["stage"] if md else "league_phase"
+        rules = get_stage_rules(stage)
+        
         transfers_made = 0
         free_transfers = rules["free_transfers"]
         if md:
@@ -303,10 +306,6 @@ def get_my_squad():
         boosters = conn.execute("SELECT * FROM boosters").fetchall()
         
         total_value = sum(dict(s)["price"] for s in squad)
-        
-        # Budget: use rules base, but if squad costs more (due to price rises), use actual + remaining
-        stage = md["stage"] if md else "league_phase"
-        rules = get_stage_rules(stage)
         # Check if user has a custom budget stored
         budget_row = conn.execute("SELECT value FROM settings WHERE key='budget'").fetchone() if conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='settings'").fetchone() else None
         budget = float(budget_row["value"]) if budget_row else rules["budget"]
