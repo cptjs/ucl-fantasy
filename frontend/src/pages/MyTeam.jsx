@@ -353,12 +353,18 @@ export default function MyTeam() {
         </div>
 
         {/* Save */}
-        {buildSquad.length === 15 && buildCaptain && (
-          <button onClick={saveBuildSquad}
-            className="w-full bg-ucl-green/20 hover:bg-ucl-green/30 text-ucl-green font-bold py-3 rounded-xl transition border border-ucl-green/30">
-            ✅ {t('saveTeam')}
-          </button>
-        )}
+        <button onClick={saveBuildSquad} disabled={buildSquad.length !== 15 || !buildCaptain}
+          className={`w-full font-bold py-3 rounded-xl transition border ${
+            buildSquad.length === 15 && buildCaptain 
+              ? 'bg-ucl-green/20 hover:bg-ucl-green/30 text-ucl-green border-ucl-green/30' 
+              : 'bg-gray-800 text-gray-500 border-gray-700 cursor-not-allowed'
+          }`}>
+          {buildSquad.length !== 15 
+            ? `${t('saveTeam')} (${buildSquad.length}/15 players)` 
+            : !buildCaptain 
+              ? `${t('saveTeam')} (select captain — tap C)` 
+              : `✅ ${t('saveTeam')}`}
+        </button>
       </div>
     )
   }
