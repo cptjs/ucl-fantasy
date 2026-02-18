@@ -55,25 +55,35 @@ def optimize_squad(
     def adjusted_points(p: Prediction) -> float:
         base = p.expected_points
         if risk_profile == "safe":
-            # Heavily penalize risky players, reward consistent ones
+            # Pure value-per-million strategy with consistency bonus
+            # Favor proven, high-confidence, low-risk starters
+            base = p.points_per_million * p.price  # reset to base
+            if p.confidence == "high":
+                base *= 1.4
+            elif p.confidence == "medium":
+                base *= 1.0
+            else:
+                base *= 0.4
             if p.risk_level == "high":
-                base *= 0.3
+                base *= 0.2
             elif p.risk_level == "medium":
                 base *= 0.7
-            if p.confidence == "high":
-                base *= 1.2
-            elif p.confidence == "low":
-                base *= 0.6
+            # Prefer cheaper reliable players
+            base += p.points_per_million * 0.5
         elif risk_profile == "aggressive":
-            # Boost high-ceiling differentials, penalize safe picks
+            # High-ceiling differential strategy
+            # Favor expensive stars and high-upside picks
+            if p.price >= 9:
+                base *= 1.5  # premium player boost
+            elif p.price >= 7:
+                base *= 1.2
             if p.risk_level == "high":
-                base *= 1.4
-            elif p.risk_level == "low":
-                base *= 0.85
+                base *= 1.3
             if p.confidence == "low":
-                base *= 1.3  # differential boost
-            # Favor cheaper high-upside players
-            base += p.points_per_million * 0.3
+                base *= 1.4  # differential boost
+            # Favor attacking players
+            if p.position in (Position.FWD, Position.MID):
+                base *= 1.15
         return base
 
     # Objective: maximize total expected points
