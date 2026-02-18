@@ -152,13 +152,16 @@ def _pick_starting_xi(squad: list[Prediction]) -> list[Prediction]:
     xi.extend(by_pos[Position.MID][:2])  # 2 MID
     xi.extend(by_pos[Position.FWD][:1])  # 1 FWD
 
-    # Fill remaining 4 spots with best available
+    # Fill remaining 4 spots with best available (max 1 GK in XI)
     remaining = [p for p in squad if p not in xi]
     remaining.sort(key=lambda p: -p.expected_points)
 
     for p in remaining:
         if len(xi) >= 11:
             break
+        # Don't add second GK to starting XI
+        if p.position == Position.GK:
+            continue
         xi.append(p)
 
     return xi
