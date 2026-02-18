@@ -304,10 +304,15 @@ def get_my_squad():
         
         total_value = sum(dict(s)["price"] for s in squad)
         
-        # Budget from rules engine
+        # Budget: use rules base, but if squad costs more (due to price rises), use actual + remaining
         stage = md["stage"] if md else "league_phase"
         rules = get_stage_rules(stage)
-        budget = rules["budget"]
+        # Check if user has a custom budget stored
+        budget_row = conn.execute("SELECT value FROM settings WHERE key='budget'").fetchone() if conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='settings'").fetchone() else None
+        budget = float(budget_row["value"]) if budget_row else rules["budget"]
+        # If squad costs more than budget, adjust (user has gains from price rises)
+        if total_value > budget:
+            budget = total_value + 0.9  # preserve their remaining from real Fantasy
         
         return {
             "squad": [dict(s) for s in squad],
@@ -394,10 +399,11 @@ def set_squad(req: SetSquadRequest):
         stage = md["stage"] if md else "league_phase"
         rules = get_stage_rules(stage)
         
-        # Check budget
+        # Check budget — warn but allow (user may have higher budget from price changes)
         total_cost = sum(p["price"] for p in players)
+        budget_warning = None
         if total_cost > rules["budget"]:
-            raise HTTPException(400, f"Over budget: €{total_cost}M > €{rules['budget']}M")
+            budget_warning = f"Squad costs €{round(total_cost,1)}M (base budget €{rules['budget']}M)"
         
         # Check club limits
         max_club = rules["max_per_club"]
@@ -437,7 +443,7 @@ def set_squad(req: SetSquadRequest):
                 md_id,
             ))
         
-        return {"status": "ok", "total_cost": round(total_cost, 1)}
+        return {"status": "ok", "total_cost": round(total_cost, 1), "budget_warning": budget_warning}
 
 
 @app.post("/api/my-squad/transfer")
