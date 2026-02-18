@@ -171,7 +171,8 @@ export default function MyTeam() {
     return c
   }
 
-  const maxBudget = data?.budget || 100
+  const maxBudget = data?.budget || 105
+  const maxPerClub = data?.max_per_club || 4
   const buildBudget = () => maxBudget - buildSquad.reduce((s, p) => s + p.price, 0)
 
   const searchPlayers = (query, pos) => {
@@ -198,7 +199,7 @@ export default function MyTeam() {
     if (player.price > buildBudget()) return
     // Club limit
     const clubCount = buildSquad.filter(p => p.club === player.club).length
-    if (clubCount >= 3) return
+    if (clubCount >= maxPerClub) return
     setBuildSquad([...buildSquad, { ...player, player_id: player.id }])
   }
 
@@ -334,7 +335,7 @@ export default function MyTeam() {
         <div className="space-y-1 max-h-[40vh] overflow-y-auto">
           {buildResults.map(p => {
             const counts2 = buildCounts()
-            const canAdd = buildSquad.length < 15 && counts2[p.position] < REQUIRED[p.position] && p.price <= buildBudget() && buildSquad.filter(s => s.club === p.club).length < 3
+            const canAdd = buildSquad.length < 15 && counts2[p.position] < REQUIRED[p.position] && p.price <= buildBudget() && buildSquad.filter(s => s.club === p.club).length < maxPerClub
             return (
               <button key={p.id} onClick={() => canAdd && addToBuild(p)} disabled={!canAdd}
                 className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition ${canAdd ? 'hover:bg-ucl-accent/10' : 'opacity-30'}`}>

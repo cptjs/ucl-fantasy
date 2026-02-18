@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useLang } from '../App'
 import { Shield, Star, Crown, ChevronDown } from 'lucide-react'
 import ClubLogo from '../components/ClubLogo'
@@ -76,8 +76,16 @@ function PitchView({ starting, formation, captain }) {
 
 export default function SquadBuilder() {
   const { t } = useLang()
-  const [budget, setBudget] = useState(100)
-  const [maxClub, setMaxClub] = useState(3)
+  const [budget, setBudget] = useState(105)
+  const [maxClub, setMaxClub] = useState(4)
+
+  // Load rules
+  useEffect(() => {
+    fetch('/api/rules').then(r => r.json()).then(d => {
+      setBudget(d.budget)
+      setMaxClub(d.max_per_club)
+    }).catch(() => {})
+  }, [])
   const [profile, setProfile] = useState('balanced')
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)

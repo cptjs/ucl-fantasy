@@ -271,7 +271,7 @@ def import_players(json_path, db_path=DB_PATH):
         conn.execute("UPDATE matchdays SET is_active = 0")
         cur = conn.execute(
             "INSERT INTO matchdays (name, stage, deadline, is_active) VALUES (?,?,?,1)",
-            ("Knockout Play-offs", "knockout", fixture_data[0].get("date", ""))
+            ("Knockout Play-offs", "ko_playoffs", fixture_data[0].get("date", ""))
         )
         md_id = cur.lastrowid
 

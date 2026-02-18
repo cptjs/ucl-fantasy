@@ -25,6 +25,7 @@ from scoring import Position, MatchStats, calculate_fantasy_points
 from predictor import PlayerProfile, FixtureInfo, predict_points, Prediction
 from optimizer import optimize_squad, SquadConstraints, OptimizedSquad
 from import_uefa import import_players
+from rules import get_stage_rules, get_all_stages, STAGES
 
 app = FastAPI(title="UCL Fantasy Assistant", version="1.0.0")
 
@@ -292,7 +293,7 @@ def get_my_squad():
         # Get transfer info for active matchday
         md = conn.execute("SELECT * FROM matchdays WHERE is_active=1").fetchone()
         transfers_made = 0
-        free_transfers = 2
+        free_transfers = rules["free_transfers"]
         if md:
             transfers_made = conn.execute(
                 "SELECT COUNT(*) as c FROM transfers WHERE matchday_id=?", (md["id"],)
@@ -303,21 +304,42 @@ def get_my_squad():
         
         total_value = sum(dict(s)["price"] for s in squad)
         
-        # Budget: stored in settings or default 100. For knockout, may be higher.
-        budget_row = conn.execute("SELECT value FROM settings WHERE key='budget'").fetchone() if conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='settings'").fetchone() else None
-        budget = float(budget_row["value"]) if budget_row else 100.0
+        # Budget from rules engine
+        stage = md["stage"] if md else "league_phase"
+        rules = get_stage_rules(stage)
+        budget = rules["budget"]
         
         return {
             "squad": [dict(s) for s in squad],
             "total_value": round(total_value, 1),
             "budget": budget,
             "budget_remaining": round(budget - total_value, 1),
+            "stage": stage,
+            "max_per_club": rules["max_per_club"],
             "transfers_made": transfers_made,
             "free_transfers": free_transfers,
             "penalty_transfers": max(0, transfers_made - free_transfers),
             "points_penalty": max(0, transfers_made - free_transfers) * 4,
             "boosters": [dict(b) for b in boosters],
             "active_matchday": dict(md) if md else None,
+        }
+
+
+@app.get("/api/rules")
+def get_rules():
+    """Get current rules based on active matchday stage."""
+    with db_session() as conn:
+        md = conn.execute("SELECT * FROM matchdays WHERE is_active=1").fetchone()
+        stage = md["stage"] if md else "league_phase"
+        rules = get_stage_rules(stage)
+        return {
+            "stage": stage,
+            "stage_label": rules["label"],
+            "budget": rules["budget"],
+            "max_per_club": rules["max_per_club"],
+            "free_transfers": rules["free_transfers"],
+            "transfer_penalty": rules["transfer_penalty"],
+            "all_stages": {k: {"label": v["label"], "budget": v["budget"], "max_per_club": v["max_per_club"]} for k, v in STAGES.items()},
         }
 
 
@@ -367,20 +389,24 @@ def set_squad(req: SetSquadRequest):
             if pos_counts.get(pos, 0) != cnt:
                 raise HTTPException(400, f"Need exactly {cnt} {pos}, got {pos_counts.get(pos, 0)}")
         
-        # Check budget (dynamic)
-        budget_row = conn.execute("SELECT value FROM settings WHERE key='budget'").fetchone() if conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='settings'").fetchone() else None
-        budget = float(budget_row["value"]) if budget_row else 100.0
-        total_cost = sum(p["price"] for p in players)
-        if total_cost > budget:
-            raise HTTPException(400, f"Over budget: €{total_cost}M > €{budget}M")
+        # Get rules for current stage
+        md = conn.execute("SELECT * FROM matchdays WHERE is_active=1").fetchone()
+        stage = md["stage"] if md else "league_phase"
+        rules = get_stage_rules(stage)
         
-        # Check club limits (max 3)
+        # Check budget
+        total_cost = sum(p["price"] for p in players)
+        if total_cost > rules["budget"]:
+            raise HTTPException(400, f"Over budget: €{total_cost}M > €{rules['budget']}M")
+        
+        # Check club limits
+        max_club = rules["max_per_club"]
         club_counts = {}
         for p in players:
             club_counts[p["club"]] = club_counts.get(p["club"], 0) + 1
         for club, cnt in club_counts.items():
-            if cnt > 3:
-                raise HTTPException(400, f"Max 3 per club: {club} has {cnt}")
+            if cnt > max_club:
+                raise HTTPException(400, f"Max {max_club} per club ({stage}): {club} has {cnt}")
         
         # Check starting XI validity
         starting_players = [p for p in players if p["id"] in req.starting_ids]
@@ -437,23 +463,25 @@ def make_transfer(req: TransferRequest):
         if pin["position"] != pout["position"]:
             raise HTTPException(400, f"Position mismatch: selling {pout['position']}, buying {pin['position']}")
         
-        # Check budget (dynamic)
-        budget_row = conn.execute("SELECT value FROM settings WHERE key='budget'").fetchone() if conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='settings'").fetchone() else None
-        budget = float(budget_row["value"]) if budget_row else 100.0
+        # Check budget from rules
+        md_row = conn.execute("SELECT * FROM matchdays WHERE is_active=1").fetchone()
+        stage = md_row["stage"] if md_row else "league_phase"
+        rules = get_stage_rules(stage)
         squad_cost = conn.execute("""
             SELECT SUM(p.price) as total FROM my_squad ms JOIN players p ON p.id = ms.player_id
         """).fetchone()["total"]
         new_cost = squad_cost - pout["price"] + pin["price"]
-        if new_cost > budget:
-            raise HTTPException(400, f"Over budget: €{round(new_cost, 1)}M > €{budget}M")
+        if new_cost > rules["budget"]:
+            raise HTTPException(400, f"Over budget: €{round(new_cost, 1)}M > €{rules['budget']}M")
         
         # Check club limit
+        max_club = rules["max_per_club"]
         club_count = conn.execute("""
             SELECT COUNT(*) as c FROM my_squad ms JOIN players p ON p.id = ms.player_id
             WHERE p.club = ? AND ms.player_id != ?
         """, (pin["club"], req.player_out_id)).fetchone()["c"]
-        if club_count >= 3:
-            raise HTTPException(400, f"Club limit: already have 3 from {pin['club']}")
+        if club_count >= max_club:
+            raise HTTPException(400, f"Club limit: already have {max_club} from {pin['club']}")
         
         # Get matchday
         md = conn.execute("SELECT id FROM matchdays WHERE is_active=1").fetchone()
