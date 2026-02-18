@@ -32,16 +32,16 @@ const LOGO_MAP = {
   'PSV': 50065, 'PSV': 50065,
 }
 
-function getLogoUrl(club, size = 40) {
+function getLogoUrl(club) {
   const id = LOGO_MAP[club]
   if (id) {
-    return `https://img.uefa.com/imgml/TP/teams/logos/${size}x${size}/${id}.png`
+    return `https://img.uefa.com/imgml/TP/teams/logos/100x100/${id}.png`
   }
   return null
 }
 
 export default function ClubLogo({ club, size = 20, className = '' }) {
-  const url = getLogoUrl(club, size <= 24 ? 40 : 100)
+  const url = getLogoUrl(club)
   
   if (!url) {
     return (

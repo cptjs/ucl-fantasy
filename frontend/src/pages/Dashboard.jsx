@@ -13,7 +13,16 @@ export default function Dashboard() {
     fetch('/api/dashboard').then(r => r.json()).then(d => {
       setData(d)
       if (d.active_matchday) {
-        fetch(`/api/fixtures?matchday_id=${d.active_matchday.id}`).then(r => r.json()).then(setFixtures)
+        fetch(`/api/fixtures?matchday_id=${d.active_matchday.id}`).then(r => r.json()).then(ff => {
+          // Sort: played first, then by kick_off ascending
+          const order = { played: 0, live: 1, scheduled: 2 }
+          ff.sort((a, b) => {
+            const sa = order[a.status] ?? 2, sb = order[b.status] ?? 2
+            if (sa !== sb) return sa - sb
+            return (a.kick_off || a.match_date || '').localeCompare(b.kick_off || b.match_date || '')
+          })
+          setFixtures(ff)
+        })
       }
     }).catch(() => {})
     fetch('/api/predictions').then(r => r.json()).then(p => setTopPlayers(p.slice(0, 8))).catch(() => {})
