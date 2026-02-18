@@ -303,10 +303,15 @@ def get_my_squad():
         
         total_value = sum(dict(s)["price"] for s in squad)
         
+        # Budget: stored in settings or default 100. For knockout, may be higher.
+        budget_row = conn.execute("SELECT value FROM settings WHERE key='budget'").fetchone() if conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='settings'").fetchone() else None
+        budget = float(budget_row["value"]) if budget_row else 100.0
+        
         return {
             "squad": [dict(s) for s in squad],
             "total_value": round(total_value, 1),
-            "budget_remaining": round(100 - total_value, 1),
+            "budget": budget,
+            "budget_remaining": round(budget - total_value, 1),
             "transfers_made": transfers_made,
             "free_transfers": free_transfers,
             "penalty_transfers": max(0, transfers_made - free_transfers),
@@ -314,6 +319,23 @@ def get_my_squad():
             "boosters": [dict(b) for b in boosters],
             "active_matchday": dict(md) if md else None,
         }
+
+
+@app.post("/api/settings/budget")
+def set_budget(budget: float = Query(...), admin=Depends(require_admin)):
+    """Set the team budget (e.g. 100 for group, higher for knockout)."""
+    with db_session() as conn:
+        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('budget', ?)", (str(budget),))
+        return {"status": "ok", "budget": budget}
+
+
+@app.get("/api/settings")
+def get_settings():
+    with db_session() as conn:
+        if not conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='settings'").fetchone():
+            return {"budget": 100.0}
+        rows = conn.execute("SELECT key, value FROM settings").fetchall()
+        return {r["key"]: r["value"] for r in rows}
 
 
 @app.post("/api/my-squad/set")
@@ -345,10 +367,12 @@ def set_squad(req: SetSquadRequest):
             if pos_counts.get(pos, 0) != cnt:
                 raise HTTPException(400, f"Need exactly {cnt} {pos}, got {pos_counts.get(pos, 0)}")
         
-        # Check budget
+        # Check budget (dynamic)
+        budget_row = conn.execute("SELECT value FROM settings WHERE key='budget'").fetchone() if conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='settings'").fetchone() else None
+        budget = float(budget_row["value"]) if budget_row else 100.0
         total_cost = sum(p["price"] for p in players)
-        if total_cost > 100:
-            raise HTTPException(400, f"Over budget: €{total_cost}M > €100M")
+        if total_cost > budget:
+            raise HTTPException(400, f"Over budget: €{total_cost}M > €{budget}M")
         
         # Check club limits (max 3)
         club_counts = {}
@@ -413,13 +437,15 @@ def make_transfer(req: TransferRequest):
         if pin["position"] != pout["position"]:
             raise HTTPException(400, f"Position mismatch: selling {pout['position']}, buying {pin['position']}")
         
-        # Check budget
+        # Check budget (dynamic)
+        budget_row = conn.execute("SELECT value FROM settings WHERE key='budget'").fetchone() if conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='settings'").fetchone() else None
+        budget = float(budget_row["value"]) if budget_row else 100.0
         squad_cost = conn.execute("""
             SELECT SUM(p.price) as total FROM my_squad ms JOIN players p ON p.id = ms.player_id
         """).fetchone()["total"]
         new_cost = squad_cost - pout["price"] + pin["price"]
-        if new_cost > 100:
-            raise HTTPException(400, f"Over budget: €{round(new_cost, 1)}M")
+        if new_cost > budget:
+            raise HTTPException(400, f"Over budget: €{round(new_cost, 1)}M > €{budget}M")
         
         # Check club limit
         club_count = conn.execute("""

@@ -112,6 +112,14 @@ export default function MyTeam() {
   const [suggestions, setSuggestions] = useState([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [msg, setMsg] = useState('')
+  
+  // Build mode state — must be before any conditional returns (React hooks rule)
+  const [buildMode, setBuildMode] = useState(false)
+  const [buildSquad, setBuildSquad] = useState([])
+  const [buildSearch, setBuildSearch] = useState('')
+  const [buildPos, setBuildPos] = useState('')
+  const [buildResults, setBuildResults] = useState([])
+  const [buildCaptain, setBuildCaptain] = useState(null)
 
   const loadSquad = () => {
     fetch('/api/my-squad').then(r => r.json()).then(d => { setData(d); setLoading(false) }).catch(() => setLoading(false))
@@ -155,14 +163,6 @@ export default function MyTeam() {
 
   if (loading) return <div className="text-center py-20 text-gray-500">Loading...</div>
 
-  // ─── Build Mode ───
-  const [buildMode, setBuildMode] = useState(false)
-  const [buildSquad, setBuildSquad] = useState([]) // [{player_id, name, club, position, price, ...}]
-  const [buildSearch, setBuildSearch] = useState('')
-  const [buildPos, setBuildPos] = useState('')
-  const [buildResults, setBuildResults] = useState([])
-  const [buildCaptain, setBuildCaptain] = useState(null)
-
   const REQUIRED = { GK: 2, DEF: 5, MID: 5, FWD: 3 }
 
   const buildCounts = () => {
@@ -171,7 +171,8 @@ export default function MyTeam() {
     return c
   }
 
-  const buildBudget = () => 100 - buildSquad.reduce((s, p) => s + p.price, 0)
+  const maxBudget = data?.budget || 100
+  const buildBudget = () => maxBudget - buildSquad.reduce((s, p) => s + p.price, 0)
 
   const searchPlayers = (query, pos) => {
     let url = '/api/players?'
