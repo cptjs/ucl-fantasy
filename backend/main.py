@@ -359,7 +359,7 @@ def set_budget(budget: float = Query(...), admin=Depends(require_admin)):
 def get_settings():
     with db_session() as conn:
         if not conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='settings'").fetchone():
-            return {"budget": 100.0}
+            return {"budget": 105.0}
         rows = conn.execute("SELECT key, value FROM settings").fetchall()
         return {r["key"]: r["value"] for r in rows}
 
@@ -572,6 +572,11 @@ def transfer_suggestions():
         squad_positions = {}
         for s in squad:
             squad_positions.setdefault(s["position"], []).append(dict(s))
+        
+        # Get stage rules for budget
+        md = conn.execute("SELECT stage FROM matchdays WHERE is_active=1").fetchone()
+        stage = md["stage"] if md else "ko_playoffs"
+        rules = get_stage_rules(stage)
     
     # Get predictions
     try:
@@ -588,7 +593,7 @@ def transfer_suggestions():
         
         # Find better players at same position within budget
         squad_cost = sum(dict(sq)["price"] for sq in squad)
-        budget_left = 100 - squad_cost + s["price"]
+        budget_left = rules["budget"] - squad_cost + s["price"]
         
         better = []
         for p in preds:
@@ -835,8 +840,8 @@ def get_predictions(matchday_id: Optional[int] = None):
 
 class OptimizeRequest(BaseModel):
     matchday_id: Optional[int] = None
-    budget: float = 100.0
-    max_per_club: int = 3
+    budget: float = 105.0
+    max_per_club: int = 4
     risk_profile: str = "balanced"  # safe, balanced, aggressive
 
 
