@@ -981,3 +981,111 @@ def fix_squad_references(admin=Depends(require_admin)):
             "orphans_removed": len(orphans),
             "message": "Orphaned squad entries removed. Use /api/my-squad/set to rebuild your squad."
         }
+
+
+# ─── Admin: Fix snapshots using lastGdPoints from UEFA JSON ───
+
+@app.post("/api/admin/fix-snapshots")
+async def fix_snapshots(file: UploadFile = File(...), matchday_id: int = Query(1), admin=Depends(require_admin)):
+    """Fix player snapshots using lastGdPoints from UEFA JSON.
+    Use when re-import baseline was wrong (e.g., first import happened mid-matchday).
+    lastGdPoints = actual matchday points from UEFA."""
+    import tempfile
+    content = await file.read()
+    with tempfile.NamedTemporaryFile(mode='wb', suffix='.json', delete=False, dir='/app/data') as tmp:
+        tmp.write(content)
+        tmp_path = tmp.name
+    
+    try:
+        with open(tmp_path) as f:
+            data = json.load(f)
+        players_json = data["data"]["value"]["playerList"]
+        
+        with db_session() as conn:
+            updated = 0
+            for p in players_json:
+                uefa_id = str(p["id"])
+                tot_pts = p.get("totPts", 0) or 0
+                last_gd = p.get("lastGdPoints", 0) or 0
+                before_pts = tot_pts - last_gd
+                
+                # Find player in DB
+                row = conn.execute("SELECT id FROM players WHERE uefa_id=?", (uefa_id,)).fetchone()
+                if not row:
+                    continue
+                
+                # Update or create snapshot
+                conn.execute("""
+                    INSERT OR REPLACE INTO player_snapshots 
+                    (player_id, matchday_id, total_points_before, total_points_after, matchday_points)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (row["id"], matchday_id, int(before_pts), tot_pts, int(last_gd)))
+                updated += 1
+            
+            # Return top performers
+            top = conn.execute("""
+                SELECT ps.matchday_points, p.name, p.club 
+                FROM player_snapshots ps JOIN players p ON p.id=ps.player_id 
+                WHERE ps.matchday_id=? ORDER BY ps.matchday_points DESC LIMIT 10
+            """, (matchday_id,)).fetchall()
+        
+        return {
+            "updated": updated,
+            "matchday_id": matchday_id,
+            "top_performers": [{"name": t["name"], "club": t["club"], "points": t["matchday_points"]} for t in top]
+        }
+    finally:
+        os.unlink(tmp_path)
+
+
+# ─── Admin: Rebuild squad from player names ───
+
+class RebuildSquadRequest(BaseModel):
+    players: list[str]  # list of player names
+    captain: str
+    vice_captain: str
+    starting: list[str]  # 11 names
+
+
+@app.post("/api/admin/rebuild-squad")
+def rebuild_squad(req: RebuildSquadRequest, admin=Depends(require_admin)):
+    """Rebuild my_squad from player names (useful after reimport when IDs changed)."""
+    with db_session() as conn:
+        player_ids = []
+        name_to_id = {}
+        for name in req.players:
+            row = conn.execute("SELECT id FROM players WHERE name=?", (name,)).fetchone()
+            if not row:
+                # Try fuzzy match
+                row = conn.execute("SELECT id FROM players WHERE name LIKE ?", (f"%{name}%",)).fetchone()
+            if not row:
+                raise HTTPException(400, f"Player not found: {name}")
+            player_ids.append(row["id"])
+            name_to_id[name] = row["id"]
+        
+        if len(player_ids) != 15:
+            raise HTTPException(400, f"Need exactly 15 players, got {len(player_ids)}")
+        
+        captain_id = name_to_id.get(req.captain)
+        vc_id = name_to_id.get(req.vice_captain)
+        starting_ids = [name_to_id.get(n) for n in req.starting if name_to_id.get(n)]
+        
+        if not captain_id:
+            raise HTTPException(400, f"Captain not found: {req.captain}")
+        if len(starting_ids) != 11:
+            raise HTTPException(400, f"Need 11 starters, got {len(starting_ids)}")
+        
+        # Clear and rebuild
+        conn.execute("DELETE FROM my_squad")
+        md = conn.execute("SELECT id FROM matchdays WHERE is_active=1").fetchone()
+        md_id = md["id"] if md else None
+        
+        for pid in player_ids:
+            conn.execute("""
+                INSERT INTO my_squad (player_id, is_captain, is_vice_captain, is_starting, added_matchday)
+                VALUES (?,?,?,?,?)
+            """, (pid, 1 if pid == captain_id else 0,
+                  1 if pid == vc_id else 0,
+                  1 if pid in starting_ids else 0, md_id))
+        
+        return {"status": "ok", "squad_size": 15, "captain": req.captain}
