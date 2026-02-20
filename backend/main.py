@@ -928,11 +928,6 @@ def get_clubs():
 
 
 # Serve frontend in production
-import os
-if os.path.exists("/app/frontend/dist"):
-    app.mount("/", StaticFiles(directory="/app/frontend/dist", html=True), name="frontend")
-
-
 # ─── Admin: Fix squad references after reimport ───
 
 @app.post("/api/admin/fix-squad")
@@ -1089,3 +1084,8 @@ def rebuild_squad(req: RebuildSquadRequest, admin=Depends(require_admin)):
                   1 if pid in starting_ids else 0, md_id))
         
         return {"status": "ok", "squad_size": 15, "captain": req.captain}
+import os
+if os.path.exists("/app/frontend/dist"):
+    app.mount("/", StaticFiles(directory="/app/frontend/dist", html=True), name="frontend")
+
+
