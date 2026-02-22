@@ -25,6 +25,7 @@ from scoring import Position, MatchStats, calculate_fantasy_points
 from predictor import PlayerProfile, FixtureInfo, predict_points, Prediction
 from optimizer import optimize_squad, SquadConstraints, OptimizedSquad
 from import_uefa import import_players, STRENGTH
+from difficulty import get_club_strength, fixture_difficulty, difficulty_label
 from rules import get_stage_rules, get_all_stages, STAGES
 
 app = FastAPI(title="UCL Fantasy Assistant", version="1.0.0")
@@ -1182,6 +1183,188 @@ def rebuild_squad(req: RebuildSquadRequest, admin=Depends(require_admin)):
                   1 if pid in starting_ids else 0, md_id))
         
         return {"status": "ok", "squad_size": 15, "captain": req.captain}
+
+
+# ─── Fixture Difficulty Calendar ───
+
+@app.get("/api/fixture-calendar")
+def get_fixture_calendar():
+    """Get fixture difficulty calendar for all clubs across upcoming matchdays.
+    Returns a grid: clubs × matchdays with difficulty ratings."""
+    with db_session() as conn:
+        # Get all matchdays
+        matchdays = conn.execute("SELECT * FROM matchdays ORDER BY id ASC").fetchall()
+        if not matchdays:
+            return {"clubs": [], "matchdays": [], "calendar": {}}
+        
+        # Get all fixtures grouped by matchday
+        all_fixtures = conn.execute("""
+            SELECT f.*, m.name as md_name, m.stage, m.is_active
+            FROM fixtures f JOIN matchdays m ON m.id = f.matchday_id
+            ORDER BY m.id ASC
+        """).fetchall()
+        
+        # Build club → matchday → fixture mapping
+        calendar = {}  # club -> [{matchday, opponent, is_home, difficulty, status, score}]
+        
+        for f in all_fixtures:
+            home = f["home_club"]
+            away = f["away_club"]
+            md_id = f["matchday_id"]
+            md_name = f["md_name"]
+            status = f["status"] or "scheduled"
+            
+            # Home team entry
+            if home not in calendar:
+                calendar[home] = []
+            h_diff = fixture_difficulty(away, is_home=True)
+            calendar[home].append({
+                "matchday_id": md_id,
+                "matchday_name": md_name,
+                "opponent": away,
+                "is_home": True,
+                "difficulty": h_diff,
+                "difficulty_label": difficulty_label(h_diff),
+                "status": status,
+                "score": f"{f['home_score']}-{f['away_score']}" if status == "played" else None,
+                "kick_off": f["kick_off"],
+                "is_active": bool(f["is_active"]),
+            })
+            
+            # Away team entry
+            if away not in calendar:
+                calendar[away] = []
+            a_diff = fixture_difficulty(home, is_home=False)
+            calendar[away].append({
+                "matchday_id": md_id,
+                "matchday_name": md_name,
+                "opponent": home,
+                "is_home": False,
+                "difficulty": a_diff,
+                "difficulty_label": difficulty_label(a_diff),
+                "status": status,
+                "score": f"{f['home_score']}-{f['away_score']}" if status == "played" else None,
+                "kick_off": f["kick_off"],
+                "is_active": bool(f["is_active"]),
+            })
+        
+        # Sort clubs by average upcoming difficulty (easiest first)
+        def avg_upcoming(club):
+            upcoming = [fix for fix in calendar.get(club, []) if fix["status"] != "played"]
+            if not upcoming:
+                return 5
+            return sum(f["difficulty"] for f in upcoming) / len(upcoming)
+        
+        sorted_clubs = sorted(calendar.keys(), key=avg_upcoming)
+        
+        md_list = [{"id": dict(m)["id"], "name": dict(m)["name"], "is_active": bool(dict(m)["is_active"])} for m in matchdays]
+        
+        return {
+            "clubs": sorted_clubs,
+            "matchdays": md_list,
+            "calendar": calendar,
+        }
+
+
+# ─── Hot Picks ───
+
+@app.get("/api/hot-picks")
+def get_hot_picks():
+    """Players with best combination of form + easy upcoming fixture.
+    Perfect for transfer targets."""
+    with db_session() as conn:
+        # Get active matchday
+        md = conn.execute("SELECT * FROM matchdays WHERE is_active=1").fetchone()
+        if not md:
+            return {"picks": [], "message": "No active matchday"}
+        
+        # Get fixtures for active matchday
+        fixtures = conn.execute("SELECT * FROM fixtures WHERE matchday_id=?", (md["id"],)).fetchall()
+        
+        # Build club -> fixture info
+        club_fixtures = {}
+        for f in fixtures:
+            if f["status"] == "played":
+                continue
+            h_diff = fixture_difficulty(f["away_club"], is_home=True)
+            a_diff = fixture_difficulty(f["home_club"], is_home=False)
+            club_fixtures[f["home_club"]] = {"opponent": f["away_club"], "is_home": True, "difficulty": h_diff, "kick_off": f["kick_off"]}
+            club_fixtures[f["away_club"]] = {"opponent": f["home_club"], "is_home": False, "difficulty": a_diff, "kick_off": f["kick_off"]}
+        
+        # Get all players with stats
+        players = conn.execute("SELECT * FROM players").fetchall()
+        
+        # Get current squad IDs
+        squad_ids = set(r["player_id"] for r in conn.execute("SELECT player_id FROM my_squad").fetchall())
+        
+        picks = []
+        for p in players:
+            club = p["club"]
+            club_code = p["club_code"] or ""
+            fix = club_fixtures.get(club) or club_fixtures.get(club_code)
+            if not fix:
+                continue
+            
+            avg = p["avg_points"] or 0
+            price = p["price"]
+            
+            # Skip non-starters and injured
+            if p["injury_status"] == "out":
+                continue
+            if not p["is_starter"] and avg < 3:
+                continue
+            
+            # Hot pick score = form (avg pts) × ease (inverse difficulty)
+            ease = (6 - fix["difficulty"]) / 5  # 1.0 for diff=1, 0.2 for diff=5
+            form_score = avg
+            
+            # Price value bonus (cheaper = better value)
+            value_bonus = max(0, (8 - price)) * 0.1
+            
+            hot_score = form_score * ease * (1 + value_bonus)
+            
+            if hot_score < 1:
+                continue
+            
+            reason_parts = []
+            if fix["difficulty"] <= 2:
+                reason_parts.append(f"Easy fixture vs {fix['opponent']} ({'H' if fix['is_home'] else 'A'})")
+            elif fix["difficulty"] <= 3:
+                reason_parts.append(f"Medium fixture vs {fix['opponent']} ({'H' if fix['is_home'] else 'A'})")
+            else:
+                reason_parts.append(f"Hard fixture vs {fix['opponent']} ({'H' if fix['is_home'] else 'A'})")
+            
+            if avg >= 5:
+                reason_parts.append(f"Strong form ({avg:.1f} avg)")
+            elif avg >= 3:
+                reason_parts.append(f"Decent form ({avg:.1f} avg)")
+            
+            if price <= 5:
+                reason_parts.append(f"Budget pick (€{price}M)")
+            
+            picks.append({
+                "player_id": p["id"],
+                "name": p["name"],
+                "club": club,
+                "position": p["position"],
+                "price": price,
+                "avg_points": avg,
+                "total_points": p["total_points"],
+                "fixture": fix,
+                "hot_score": round(hot_score, 1),
+                "reason": " · ".join(reason_parts),
+                "in_squad": p["id"] in squad_ids,
+                "injury_status": p["injury_status"],
+            })
+        
+        picks.sort(key=lambda x: -x["hot_score"])
+        
+        return {
+            "picks": picks[:30],
+            "matchday": dict(md),
+        }
+
+
 import os
 if os.path.exists("/app/frontend/dist"):
     app.mount("/", StaticFiles(directory="/app/frontend/dist", html=True), name="frontend")

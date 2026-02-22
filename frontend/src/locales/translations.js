@@ -81,6 +81,8 @@ const translations = {
     editTeam: "Edit Team",
     saveTeam: "Save Team",
     archive: "Archive",
+    fixtureCalendar: "Calendar",
+    hotPicks: "Hot Picks",
     noArchiveData: "No matchday data yet",
     fetchResults: "Fetch Results",
   },
@@ -166,6 +168,8 @@ const translations = {
     editTeam: "Редагувати",
     saveTeam: "Зберегти команду",
     archive: "Архів",
+    fixtureCalendar: "Календар",
+    hotPicks: "Гарячі вибори",
     noArchiveData: "Немає даних про тури",
     fetchResults: "Оновити результати",
   }
