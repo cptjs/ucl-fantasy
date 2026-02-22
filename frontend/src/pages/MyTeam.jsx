@@ -501,6 +501,12 @@ export default function MyTeam() {
           className="flex items-center gap-2 px-4 py-2.5 bg-ucl-accent/20 hover:bg-ucl-accent/30 text-ucl-accent rounded-xl text-sm font-medium transition">
           <Zap size={16} /> {t('transferSuggestions')}
         </button>
+        <button onClick={() => {
+          fetch('/api/my-squad/suggestions-multi').then(r=>r.json()).then(d=>{setSuggestions(d);setShowSuggestions(true)})
+        }}
+          className="flex items-center gap-2 px-4 py-2.5 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 rounded-xl text-sm font-medium transition">
+          <Zap size={16} /> Long-term
+        </button>
       </div>
 
       {/* Boosters */}

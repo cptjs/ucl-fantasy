@@ -1624,6 +1624,206 @@ def get_knockout_path():
         return {"rounds": rounds}
 
 
+
+
+# ─── Points History & Player Compare ───
+
+@app.get("/api/players/compare")
+def compare_players(ids: str = Query(..., description="Comma-separated player IDs")):
+    """Compare multiple players' points history across matchdays."""
+    player_ids = [int(x.strip()) for x in ids.split(",") if x.strip()]
+    if not player_ids or len(player_ids) > 6:
+        raise HTTPException(400, "Provide 1-6 player IDs")
+    
+    with db_session() as conn:
+        matchdays = conn.execute("SELECT * FROM matchdays ORDER BY id ASC").fetchall()
+        
+        result = []
+        for pid in player_ids:
+            player = conn.execute("SELECT id, name, club, club_code, position, price FROM players WHERE id=?", (pid,)).fetchone()
+            if not player:
+                continue
+            
+            snapshots = conn.execute("""
+                SELECT ps.matchday_id, ps.matchday_points, m.name as matchday_name
+                FROM player_snapshots ps JOIN matchdays m ON m.id = ps.matchday_id
+                WHERE ps.player_id = ? AND ps.matchday_points IS NOT NULL
+                ORDER BY ps.matchday_id ASC
+            """, (pid,)).fetchall()
+            
+            pts_map = {s["matchday_id"]: s["matchday_points"] for s in snapshots}
+            total = sum(pts_map.values())
+            
+            result.append({
+                "player": dict(player),
+                "points_by_matchday": pts_map,
+                "total_points": total,
+                "avg_points": round(total / max(len(pts_map), 1), 1),
+                "max_points": max(pts_map.values()) if pts_map else 0,
+                "games_with_data": len(pts_map),
+            })
+        
+        return {
+            "players": result,
+            "matchdays": [{"id": dict(m)["id"], "name": dict(m)["name"]} for m in matchdays],
+        }
+
+
+@app.get("/api/players/search-for-compare")
+def search_players_for_compare(q: str = Query("", description="Search query")):
+    """Search players for comparison tool."""
+    with db_session() as conn:
+        if q:
+            rows = conn.execute(
+                "SELECT id, name, club, position, price, avg_points FROM players WHERE name LIKE ? ORDER BY total_points DESC LIMIT 20",
+                (f"%{q}%",)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT id, name, club, position, price, avg_points FROM players ORDER BY total_points DESC LIMIT 20"
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+
+# ─── Multi-Matchday Transfer Suggestions ───
+
+@app.get("/api/my-squad/suggestions-multi")
+def transfer_suggestions_multi():
+    """Transfer suggestions considering 2+ upcoming matchdays for long-term value."""
+    with db_session() as conn:
+        squad = conn.execute("""
+            SELECT ms.player_id, ms.is_starting, ms.is_captain, p.name, p.club, p.club_code,
+                   p.position, p.price, p.avg_points, p.total_points, p.injury_status
+            FROM my_squad ms JOIN players p ON p.id = ms.player_id
+        """).fetchall()
+        
+        if not squad:
+            return {"suggestions": [], "summary": "No squad set."}
+        
+        squad_ids = set(s["player_id"] for s in squad)
+        
+        md = conn.execute("SELECT * FROM matchdays WHERE is_active=1").fetchone()
+        if not md:
+            return {"suggestions": [], "summary": "No active matchday"}
+        stage = md["stage"]
+        rules = get_stage_rules(stage)
+        
+        # Get ALL matchdays to find upcoming ones
+        all_mds = conn.execute("SELECT * FROM matchdays ORDER BY id ASC").fetchall()
+        active_idx = next((i for i, m in enumerate(all_mds) if m["id"] == md["id"]), 0)
+        upcoming_mds = [dict(m) for m in all_mds[active_idx:active_idx + 3]]  # current + next 2
+        
+        # Get fixtures for all upcoming matchdays
+        upcoming_fixtures = {}  # club -> [{matchday, opponent, difficulty}]
+        for umd in upcoming_mds:
+            fixtures = conn.execute("SELECT * FROM fixtures WHERE matchday_id=?", (umd["id"],)).fetchall()
+            for f in fixtures:
+                if f["status"] == "played":
+                    continue
+                for club, opp, home in [(f["home_club"], f["away_club"], True), (f["away_club"], f["home_club"], False)]:
+                    if club not in upcoming_fixtures:
+                        upcoming_fixtures[club] = []
+                    diff = fixture_difficulty(opp, home)
+                    upcoming_fixtures[club].append({
+                        "matchday_id": umd["id"],
+                        "matchday_name": umd["name"],
+                        "opponent": opp,
+                        "is_home": home,
+                        "difficulty": diff,
+                    })
+    
+    # Get current matchday predictions
+    try:
+        preds = get_predictions()
+    except:
+        return {"suggestions": [], "summary": "No predictions available"}
+    
+    pred_map = {p["player_id"]: p for p in preds}
+    
+    # Score each player: current prediction + future fixture ease
+    def multi_md_score(player_id, club):
+        current_pred = pred_map.get(player_id, {}).get("expected_points", 0)
+        future_fixtures = upcoming_fixtures.get(club, [])
+        
+        if not future_fixtures:
+            return current_pred
+        
+        # Future ease score: average (6 - difficulty) across upcoming matchdays
+        future_ease = sum((6 - f["difficulty"]) for f in future_fixtures) / len(future_fixtures)
+        # Normalize to a multiplier (1.0 = average, higher = easier run)
+        ease_mult = future_ease / 3.0  # 3.0 is "average" (6-3=3)
+        
+        # Blend: 60% current matchday, 40% fixture run
+        return current_pred * 0.6 + current_pred * ease_mult * 0.4
+    
+    # Analyze squad
+    squad_analysis = []
+    for s in squad:
+        s = dict(s)
+        s["multi_score"] = multi_md_score(s["player_id"], s["club"])
+        s["expected"] = pred_map.get(s["player_id"], {}).get("expected_points", 0)
+        s["fixture_run"] = upcoming_fixtures.get(s["club"], [])
+        squad_analysis.append(s)
+    
+    # Find upgrades
+    suggestions = []
+    for s in sorted(squad_analysis, key=lambda x: x["multi_score"]):
+        squad_cost = sum(sq["price"] for sq in squad_analysis)
+        budget_avail = rules["budget"] - squad_cost + s["price"]
+        
+        best = None
+        for p in preds:
+            if p["player_id"] in squad_ids:
+                continue
+            if p["position"] != s["position"]:
+                continue
+            
+            p_multi = multi_md_score(p["player_id"], p.get("club", ""))
+            if p_multi <= s["multi_score"] + 1:
+                continue
+            
+            gain = round(p_multi - s["multi_score"], 1)
+            
+            # Fixture run description
+            p_fixtures = upcoming_fixtures.get(p.get("club", ""), [])
+            run_desc = ", ".join([
+                f"{'H' if f['is_home'] else 'A'} {f['opponent']} ({f['difficulty']}★)"
+                for f in p_fixtures[:3]
+            ]) if p_fixtures else "no fixtures"
+            
+            s_fixtures = s.get("fixture_run", [])
+            s_run_desc = ", ".join([
+                f"{'H' if f['is_home'] else 'A'} {f['opponent']} ({f['difficulty']}★)"
+                for f in s_fixtures[:3]
+            ]) if s_fixtures else "no fixtures"
+            
+            candidate = {
+                "player_in": p,
+                "player_out": s,
+                "multi_gain": gain,
+                "points_gain": round(p.get("expected_points", 0) - s["expected"]),
+                "cost_diff": round(p["price"] - s["price"], 1),
+                "reason": f"{p['name']} has better fixture run: {run_desc}. {s['name']}: {s_run_desc}",
+                "in_run": run_desc,
+                "out_run": s_run_desc,
+                "warning": "over budget" if p["price"] > budget_avail else None,
+            }
+            
+            if best is None or gain > best["multi_gain"]:
+                best = candidate
+        
+        if best:
+            suggestions.append(best)
+    
+    suggestions.sort(key=lambda x: -x["multi_gain"])
+    
+    return {
+        "suggestions": suggestions[:10],
+        "matchdays_considered": [m["name"] for m in upcoming_mds],
+        "summary": f"Analyzing {len(upcoming_mds)} upcoming matchdays for long-term value",
+    }
+
+
 import os
 if os.path.exists("/app/frontend/dist"):
     app.mount("/", StaticFiles(directory="/app/frontend/dist", html=True), name="frontend")

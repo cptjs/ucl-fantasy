@@ -1,5 +1,5 @@
 import React, { useState, useEffect, createContext, useContext } from 'react'
-import { Trophy, Users, TrendingUp, Layers, Upload, Globe, UserCircle, BookOpen, Calendar } from 'lucide-react'
+import { Trophy, Users, TrendingUp, Layers, Upload, Globe, UserCircle, BookOpen, Calendar, BarChart3 } from 'lucide-react'
 import translations from './locales/translations'
 import Dashboard from './pages/Dashboard'
 import Players from './pages/Players'
@@ -9,6 +9,7 @@ import ImportData from './pages/ImportData'
 import MyTeam from './pages/MyTeam'
 import Archive from './pages/Archive'
 import FixtureCalendar from './pages/FixtureCalendar'
+import Compare from './pages/Compare'
 
 const LangContext = createContext()
 export const useLang = () => useContext(LangContext)
@@ -20,6 +21,7 @@ const tabs = [
   { id: 'predictions', icon: TrendingUp },
   { id: 'fixtureCalendar', icon: Calendar },
   { id: 'squadBuilder', icon: Layers },
+  { id: 'compare', icon: BarChart3 },
   { id: 'archive', icon: BookOpen },
   { id: 'importData', icon: Upload },
 ]
@@ -38,6 +40,7 @@ export default function App() {
     predictions: <Predictions />,
     fixtureCalendar: <FixtureCalendar />,
     squadBuilder: <SquadBuilder />,
+    compare: <Compare />,
     archive: <Archive />,
     importData: <ImportData />,
   }

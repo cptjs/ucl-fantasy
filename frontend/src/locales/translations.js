@@ -83,6 +83,8 @@ const translations = {
     archive: "Archive",
     fixtureCalendar: "Calendar",
     hotPicks: "Hot Picks",
+    compare: "Compare",
+    compareTitle: "Compare Players",
     noArchiveData: "No matchday data yet",
     fetchResults: "Fetch Results",
   },
@@ -170,6 +172,8 @@ const translations = {
     archive: "Архів",
     fixtureCalendar: "Календар",
     hotPicks: "Гарячі вибори",
+    compare: "Порівняння",
+    compareTitle: "Порівняння гравців",
     noArchiveData: "Немає даних про тури",
     fetchResults: "Оновити результати",
   }
