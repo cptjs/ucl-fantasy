@@ -210,6 +210,30 @@ def import_players(json_path, db_path=DB_PATH):
     conn.commit()
     print(f"Imported {count} players")
 
+    # Save price history
+    active_md = conn.execute("SELECT id FROM matchdays WHERE is_active=1").fetchone()
+    if active_md:
+        md_id = active_md[0]
+        # Ensure table exists
+        conn.execute("""CREATE TABLE IF NOT EXISTS price_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            player_id INTEGER REFERENCES players(id),
+            matchday_id INTEGER REFERENCES matchdays(id),
+            price REAL, total_points INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(player_id, matchday_id))""")
+        ph_count = 0
+        for p in players:
+            uefa_id = str(p["id"])
+            row = conn.execute("SELECT id, price, total_points FROM players WHERE uefa_id=?", (uefa_id,)).fetchone()
+            if row:
+                conn.execute("""INSERT OR REPLACE INTO price_history 
+                    (player_id, matchday_id, price, total_points) VALUES (?,?,?,?)""",
+                    (row[0], md_id, row[1], row[2]))
+                ph_count += 1
+        conn.commit()
+        print(f"Saved price history for {ph_count} players")
+
     # Create snapshots using lastGdPoints (accurate matchday points from UEFA)
     active_md = conn.execute("SELECT id FROM matchdays WHERE is_active=1").fetchone()
     if is_reimport and active_md:

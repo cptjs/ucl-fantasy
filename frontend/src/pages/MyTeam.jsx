@@ -112,6 +112,7 @@ export default function MyTeam() {
   const [suggestions, setSuggestions] = useState([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [msg, setMsg] = useState('')
+  const [boosters, setBoosters] = useState(null)
   
   // Build mode state — must be before any conditional returns (React hooks rule)
   const [buildMode, setBuildMode] = useState(false)
@@ -125,7 +126,10 @@ export default function MyTeam() {
     fetch('/api/my-squad').then(r => r.json()).then(d => { setData(d); setLoading(false) }).catch(() => setLoading(false))
   }
 
-  useEffect(() => { loadSquad() }, [])
+  useEffect(() => { 
+    loadSquad()
+    fetch('/api/boosters').then(r => r.json()).then(setBoosters).catch(() => {})
+  }, [])
 
   const doTransfer = async (outId, inId) => {
     const r = await fetch('/api/my-squad/transfer', {
@@ -498,6 +502,52 @@ export default function MyTeam() {
           <Zap size={16} /> {t('transferSuggestions')}
         </button>
       </div>
+
+      {/* Boosters */}
+      {boosters && (
+        <div className="bg-ucl-blue/20 border border-ucl-accent/10 rounded-xl p-4">
+          <h3 className="text-sm font-semibold text-gray-400 mb-3">🚀 Boosters</h3>
+          <div className="flex gap-3">
+            {boosters.boosters?.map(b => {
+              const isActive = boosters.active_booster === b.name
+              const used = !b.is_available && !isActive
+              return (
+                <div key={b.name} className={`flex-1 rounded-xl p-3 border transition ${
+                  isActive ? 'bg-purple-500/20 border-purple-500/40' :
+                  used ? 'bg-gray-800/50 border-gray-700 opacity-50' :
+                  'bg-ucl-dark/30 border-ucl-accent/10 hover:border-ucl-accent/30'
+                }`}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-lg">{b.name === 'limitless' ? '♾️' : '🃏'}</span>
+                    <span className="text-sm font-bold text-white capitalize">{b.name}</span>
+                    {isActive && <span className="text-[9px] px-1.5 rounded bg-purple-500/30 text-purple-300">ACTIVE</span>}
+                    {used && <span className="text-[9px] px-1.5 rounded bg-gray-600 text-gray-400">USED</span>}
+                  </div>
+                  <p className="text-[10px] text-gray-500 mb-2">
+                    {b.name === 'limitless' ? 'Unlimited transfers for 1 matchday (squad reverts after)' : 'Full squad rebuild without penalty'}
+                  </p>
+                  {b.is_available && !isActive && (
+                    <button onClick={async () => {
+                      if (!confirm('Activate ' + b.name + '?')) return
+                      const adminKey = localStorage.getItem('ucl-admin-key')
+                      const r = await fetch('/api/boosters/activate', {
+                        method: 'POST', headers: {'Content-Type':'application/json','X-Admin-Key':adminKey},
+                        body: JSON.stringify({booster: b.name})
+                      })
+                      const d = await r.json()
+                      if (r.ok) { setMsg('✅ ' + d.message); fetch('/api/boosters').then(r=>r.json()).then(setBoosters) }
+                      else setMsg('❌ ' + (d.detail || 'Error'))
+                      setTimeout(() => setMsg(''), 5000)
+                    }} className="text-xs px-3 py-1 rounded-lg bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 transition">
+                      Activate
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Transfer Suggestions */}
       {showSuggestions && (

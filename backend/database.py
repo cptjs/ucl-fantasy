@@ -144,6 +144,16 @@ def init_db():
             UNIQUE(player_id, matchday_id)
         );
 
+        CREATE TABLE IF NOT EXISTS price_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            player_id INTEGER REFERENCES players(id),
+            matchday_id INTEGER REFERENCES matchdays(id),
+            price REAL,
+            total_points INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(player_id, matchday_id)
+        );
+
         CREATE TABLE IF NOT EXISTS squads (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             matchday_id INTEGER REFERENCES matchdays(id),

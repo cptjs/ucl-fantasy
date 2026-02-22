@@ -1365,6 +1365,265 @@ def get_hot_picks():
         }
 
 
+
+
+# ─── Boosters ───
+
+class ActivateBoosterRequest(BaseModel):
+    booster: str  # "limitless" or "wildcard"
+
+
+@app.post("/api/boosters/activate")
+def activate_booster(req: ActivateBoosterRequest, admin=Depends(require_admin)):
+    """Activate a booster for the current matchday."""
+    if req.booster not in ("limitless", "wildcard"):
+        raise HTTPException(400, "Invalid booster. Use 'limitless' or 'wildcard'")
+    
+    with db_session() as conn:
+        md = conn.execute("SELECT * FROM matchdays WHERE is_active=1").fetchone()
+        if not md:
+            raise HTTPException(400, "No active matchday")
+        
+        booster = conn.execute("SELECT * FROM boosters WHERE name=?", (req.booster,)).fetchone()
+        if not booster:
+            raise HTTPException(400, "Booster not found")
+        if not booster["is_available"]:
+            raise HTTPException(400, f"{req.booster} already used on matchday {booster['used_matchday_id']}")
+        
+        if req.booster == "limitless":
+            # Save current squad as backup (for rollback after matchday)
+            squad = conn.execute("SELECT * FROM my_squad").fetchall()
+            backup = json.dumps([dict(s) for s in squad])
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('limitless_backup', ?)", (backup,))
+        
+        conn.execute("UPDATE boosters SET is_available=0, used_matchday_id=? WHERE name=?",
+                     (md["id"], req.booster))
+        
+        return {
+            "status": "ok",
+            "booster": req.booster,
+            "matchday": dict(md),
+            "message": f"{req.booster.title()} activated! " + (
+                "Make unlimited transfers this matchday. Squad will revert after."
+                if req.booster == "limitless" else
+                "Rebuild your entire squad without penalty."
+            )
+        }
+
+
+@app.post("/api/boosters/rollback-limitless")
+def rollback_limitless(admin=Depends(require_admin)):
+    """Rollback squad to pre-Limitless state. Call after Limitless matchday ends."""
+    with db_session() as conn:
+        backup = conn.execute("SELECT value FROM settings WHERE key='limitless_backup'").fetchone()
+        if not backup:
+            raise HTTPException(400, "No Limitless backup found")
+        
+        squad_data = json.loads(backup["value"])
+        if not squad_data:
+            raise HTTPException(400, "Backup is empty")
+        
+        conn.execute("DELETE FROM my_squad")
+        for s in squad_data:
+            conn.execute("""INSERT INTO my_squad (player_id, is_captain, is_vice_captain, is_starting, added_matchday)
+                VALUES (?,?,?,?,?)""",
+                (s["player_id"], s["is_captain"], s["is_vice_captain"], s["is_starting"], s["added_matchday"]))
+        
+        conn.execute("DELETE FROM settings WHERE key='limitless_backup'")
+        
+        return {"status": "ok", "message": f"Squad reverted to pre-Limitless state ({len(squad_data)} players)"}
+
+
+@app.get("/api/boosters")
+def get_boosters():
+    """Get booster status."""
+    with db_session() as conn:
+        boosters = conn.execute("SELECT * FROM boosters").fetchall()
+        md = conn.execute("SELECT * FROM matchdays WHERE is_active=1").fetchone()
+        
+        active_booster = None
+        if md:
+            for b in boosters:
+                if b["used_matchday_id"] == md["id"]:
+                    active_booster = b["name"]
+        
+        return {
+            "boosters": [dict(b) for b in boosters],
+            "active_booster": active_booster,
+            "has_limitless_backup": bool(conn.execute("SELECT 1 FROM settings WHERE key='limitless_backup'").fetchone()),
+        }
+
+
+# ─── Form Trends ───
+
+@app.get("/api/players/{player_id}/form")
+def get_player_form(player_id: int):
+    """Get player form trend: points per matchday over time."""
+    with db_session() as conn:
+        player = conn.execute("SELECT * FROM players WHERE id=?", (player_id,)).fetchone()
+        if not player:
+            raise HTTPException(404, "Player not found")
+        
+        # Get snapshots across matchdays
+        snapshots = conn.execute("""
+            SELECT ps.matchday_id, ps.matchday_points, ps.total_points_before, ps.total_points_after,
+                   m.name as matchday_name, m.stage
+            FROM player_snapshots ps
+            JOIN matchdays m ON m.id = ps.matchday_id
+            WHERE ps.player_id = ? AND ps.matchday_points IS NOT NULL
+            ORDER BY ps.matchday_id ASC
+        """, (player_id,)).fetchall()
+        
+        # Get price history
+        prices = conn.execute("""
+            SELECT ph.matchday_id, ph.price, m.name as matchday_name
+            FROM price_history ph
+            JOIN matchdays m ON m.id = ph.matchday_id
+            WHERE ph.player_id = ?
+            ORDER BY ph.matchday_id ASC
+        """, (player_id,)).fetchall() if conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='price_history'"
+        ).fetchone() else []
+        
+        points_list = [dict(s) for s in snapshots]
+        prices_list = [dict(p) for p in prices]
+        
+        # Calculate trend
+        pts_values = [s["matchday_points"] for s in snapshots]
+        trend = "stable"
+        if len(pts_values) >= 2:
+            recent = sum(pts_values[-2:]) / 2
+            older = sum(pts_values[:-2]) / max(len(pts_values[:-2]), 1) if len(pts_values) > 2 else pts_values[0]
+            if recent > older * 1.3:
+                trend = "rising"
+            elif recent < older * 0.7:
+                trend = "falling"
+        
+        # Price change
+        price_trend = "stable"
+        if len(prices_list) >= 2:
+            if prices_list[-1]["price"] > prices_list[0]["price"]:
+                price_trend = "rising"
+            elif prices_list[-1]["price"] < prices_list[0]["price"]:
+                price_trend = "falling"
+        
+        return {
+            "player": dict(player),
+            "points_history": points_list,
+            "price_history": prices_list,
+            "form_trend": trend,
+            "price_trend": price_trend,
+            "avg_points": round(sum(pts_values) / max(len(pts_values), 1), 1) if pts_values else 0,
+        }
+
+
+# ─── Price Changes ───
+
+@app.get("/api/price-changes")
+def get_price_changes():
+    """Get players whose price changed between matchdays."""
+    with db_session() as conn:
+        if not conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='price_history'").fetchone():
+            return {"risers": [], "fallers": []}
+        
+        # Get last two matchday IDs that have price data
+        mds = conn.execute("""
+            SELECT DISTINCT matchday_id FROM price_history ORDER BY matchday_id DESC LIMIT 2
+        """).fetchall()
+        
+        if len(mds) < 2:
+            return {"risers": [], "fallers": [], "message": "Need 2+ imports to track changes"}
+        
+        current_md = mds[0]["matchday_id"]
+        prev_md = mds[1]["matchday_id"]
+        
+        changes = conn.execute("""
+            SELECT p.name, p.club, p.position, p.price as current_price,
+                   cur.price as new_price, prev.price as old_price,
+                   (cur.price - prev.price) as price_diff
+            FROM price_history cur
+            JOIN price_history prev ON prev.player_id = cur.player_id AND prev.matchday_id = ?
+            JOIN players p ON p.id = cur.player_id
+            WHERE cur.matchday_id = ? AND cur.price != prev.price
+            ORDER BY ABS(cur.price - prev.price) DESC
+        """, (prev_md, current_md)).fetchall()
+        
+        risers = [dict(c) for c in changes if c["price_diff"] > 0]
+        fallers = [dict(c) for c in changes if c["price_diff"] < 0]
+        
+        return {"risers": risers[:20], "fallers": fallers[:20]}
+
+
+# ─── Knockout Path ───
+
+@app.get("/api/knockout-path")
+def get_knockout_path():
+    """Get knockout bracket with advancing probabilities and player value."""
+    with db_session() as conn:
+        # Get all knockout matchdays and fixtures
+        matchdays = conn.execute("""
+            SELECT * FROM matchdays WHERE stage != 'league_phase' ORDER BY id ASC
+        """).fetchall()
+        
+        rounds = []
+        for md in matchdays:
+            fixtures = conn.execute("""
+                SELECT * FROM fixtures WHERE matchday_id = ? ORDER BY kick_off ASC
+            """, (md["id"],)).fetchall()
+            
+            ties = []
+            for f in fixtures:
+                home_strength = get_club_strength(f["home_club"])
+                away_strength = get_club_strength(f["away_club"])
+                
+                # Simple advancing probability based on strength + result
+                if f["status"] == "played" and f["home_score"] is not None:
+                    # Use actual result
+                    home_goals = f["home_score"]
+                    away_goals = f["away_score"]
+                    if home_goals > away_goals:
+                        home_adv_prob = 0.75
+                    elif away_goals > home_goals:
+                        home_adv_prob = 0.25
+                    else:
+                        home_adv_prob = 0.5
+                else:
+                    # Use strength
+                    total = home_strength + away_strength
+                    home_adv_prob = round(home_strength / total, 2) if total > 0 else 0.5
+                
+                # Count players per club in user squad
+                home_players = conn.execute("""
+                    SELECT COUNT(*) as c FROM my_squad ms JOIN players p ON p.id = ms.player_id 
+                    WHERE p.club = ? OR p.club_code = ?
+                """, (f["home_club"], f.get("home_code", ""))).fetchone()["c"]
+                
+                away_players = conn.execute("""
+                    SELECT COUNT(*) as c FROM my_squad ms JOIN players p ON p.id = ms.player_id 
+                    WHERE p.club = ? OR p.club_code = ?
+                """, (f["away_club"], f.get("away_code", ""))).fetchone()["c"]
+                
+                ties.append({
+                    "home_club": f["home_club"],
+                    "away_club": f["away_club"],
+                    "home_score": f["home_score"],
+                    "away_score": f["away_score"],
+                    "status": f["status"] or "scheduled",
+                    "kick_off": f["kick_off"],
+                    "home_advance_prob": home_adv_prob,
+                    "away_advance_prob": round(1 - home_adv_prob, 2),
+                    "home_squad_players": home_players,
+                    "away_squad_players": away_players,
+                })
+            
+            rounds.append({
+                "matchday": dict(md),
+                "ties": ties,
+            })
+        
+        return {"rounds": rounds}
+
+
 import os
 if os.path.exists("/app/frontend/dist"):
     app.mount("/", StaticFiles(directory="/app/frontend/dist", html=True), name="frontend")
