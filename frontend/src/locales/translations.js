@@ -80,6 +80,9 @@ const translations = {
     buildTeam: "Build Team",
     editTeam: "Edit Team",
     saveTeam: "Save Team",
+    archive: "Archive",
+    noArchiveData: "No matchday data yet",
+    fetchResults: "Fetch Results",
   },
   ua: {
     title: "UCL Fantasy Асистент",
@@ -162,6 +165,9 @@ const translations = {
     buildTeam: "Зібрати команду",
     editTeam: "Редагувати",
     saveTeam: "Зберегти команду",
+    archive: "Архів",
+    noArchiveData: "Немає даних про тури",
+    fetchResults: "Оновити результати",
   }
 };
 

@@ -24,7 +24,7 @@ from database import init_db, db_session
 from scoring import Position, MatchStats, calculate_fantasy_points
 from predictor import PlayerProfile, FixtureInfo, predict_points, Prediction
 from optimizer import optimize_squad, SquadConstraints, OptimizedSquad
-from import_uefa import import_players
+from import_uefa import import_players, STRENGTH
 from rules import get_stage_rules, get_all_stages, STAGES
 
 app = FastAPI(title="UCL Fantasy Assistant", version="1.0.0")
@@ -1089,3 +1089,149 @@ if os.path.exists("/app/frontend/dist"):
     app.mount("/", StaticFiles(directory="/app/frontend/dist", html=True), name="frontend")
 
 
+
+
+# ─── Archive ───
+
+@app.get("/api/archive")
+def get_archive():
+    """Get all past matchdays with fixtures and top performers."""
+    with db_session() as conn:
+        matchdays = conn.execute("""
+            SELECT * FROM matchdays ORDER BY id DESC
+        """).fetchall()
+        
+        result = []
+        for md in matchdays:
+            md_dict = dict(md)
+            
+            # Get fixtures
+            fixtures = conn.execute("""
+                SELECT * FROM fixtures WHERE matchday_id = ?
+                ORDER BY 
+                    CASE status WHEN 'played' THEN 0 WHEN 'live' THEN 1 ELSE 2 END,
+                    kick_off ASC
+            """, (md["id"],)).fetchall()
+            md_dict["fixtures"] = [dict(f) for f in fixtures]
+            
+            # Get top performers from snapshots
+            top = conn.execute("""
+                SELECT ps.matchday_points, p.name, p.club, p.position, p.price
+                FROM player_snapshots ps
+                JOIN players p ON p.id = ps.player_id
+                WHERE ps.matchday_id = ? AND ps.matchday_points IS NOT NULL
+                ORDER BY ps.matchday_points DESC
+                LIMIT 10
+            """, (md["id"],)).fetchall()
+            md_dict["top_performers"] = [dict(t) for t in top]
+            
+            # Squad points for this matchday (if user had a squad)
+            squad_pts = conn.execute("""
+                SELECT SUM(
+                    CASE WHEN ms.is_captain = 1 THEN COALESCE(ps.matchday_points, 0) * 2
+                         WHEN ms.is_starting = 1 THEN COALESCE(ps.matchday_points, 0)
+                         ELSE 0 END
+                ) as total_points
+                FROM my_squad ms
+                LEFT JOIN player_snapshots ps ON ps.player_id = ms.player_id AND ps.matchday_id = ?
+            """, (md["id"],)).fetchone()
+            md_dict["my_points"] = squad_pts["total_points"] if squad_pts else None
+            
+            # Transfer penalty
+            penalty = conn.execute("""
+                SELECT COUNT(*) as c FROM transfers 
+                WHERE matchday_id = ? AND is_free = 0
+            """, (md["id"],)).fetchone()
+            md_dict["penalty_points"] = (penalty["c"] * 4) if penalty else 0
+            
+            result.append(md_dict)
+        
+        return result
+
+
+# ─── New Matchday Wizard ───
+
+@app.post("/api/matchdays/wizard")
+def matchday_wizard(
+    stage: str = Query(..., description="Stage key from rules.py"),
+    name: str = Query(None, description="Custom name (auto-generated if empty)"),
+    admin=Depends(require_admin)
+):
+    """Create a new matchday with fixtures auto-fetched from football-data.org.
+    Deactivates old matchday, creates new one with correct stage rules,
+    and pulls upcoming fixtures from the API."""
+    from fetch_results import fetch_and_update, normalize_team, API_URL, TEAM_MAP
+    import requests
+    from datetime import datetime, timedelta
+    
+    rules = get_stage_rules(stage)
+    if not name:
+        name = rules["label"]
+    
+    with db_session() as conn:
+        # Deactivate old
+        conn.execute("UPDATE matchdays SET is_active = 0")
+        
+        # Create new matchday
+        cur = conn.execute(
+            "INSERT INTO matchdays (name, stage, deadline, is_active) VALUES (?,?,?,1)",
+            (name, stage, None)
+        )
+        md_id = cur.lastrowid
+    
+    # Try to fetch upcoming fixtures from football-data.org
+    fixtures_added = 0
+    api_key = os.environ.get("FOOTBALL_DATA_API_KEY", "")
+    headers = {"X-Auth-Token": api_key} if api_key else {}
+    
+    try:
+        # Fetch upcoming matches (next 30 days)
+        date_from = datetime.utcnow().strftime("%Y-%m-%d")
+        date_to = (datetime.utcnow() + timedelta(days=30)).strftime("%Y-%m-%d")
+        
+        r = requests.get(
+            API_URL,
+            params={"dateFrom": date_from, "dateTo": date_to, "status": "SCHEDULED,TIMED"},
+            headers=headers,
+            timeout=15
+        )
+        r.raise_for_status()
+        matches = r.json().get("matches", [])
+        
+        # Take matches from the nearest matchday (same date range, typically 2 days)
+        if matches:
+            # Group by date
+            first_date = matches[0]["utcDate"][:10]
+            # Include matches within 2 days of first match
+            first_dt = datetime.fromisoformat(first_date)
+            relevant = [m for m in matches if abs((datetime.fromisoformat(m["utcDate"][:10]) - first_dt).days) <= 1]
+            
+            with db_session() as conn:
+                for m in relevant:
+                    home = normalize_team(m["homeTeam"]["name"])
+                    away = normalize_team(m["awayTeam"]["name"])
+                    kick_off = m.get("utcDate", "")
+                    
+                    h_str = STRENGTH.get(home, 0.5)
+                    a_str = STRENGTH.get(away, 0.5)
+                    
+                    conn.execute("""
+                        INSERT INTO fixtures (matchday_id, home_club, away_club,
+                                              home_strength, away_strength, kick_off, status)
+                        VALUES (?,?,?,?,?,?,?)
+                    """, (md_id, home, away, h_str, a_str, kick_off, "scheduled"))
+                    fixtures_added += 1
+    except Exception as e:
+        # API failed — matchday created but no fixtures (user can add manually or via UEFA import)
+        pass
+    
+    return {
+        "matchday_id": md_id,
+        "name": name,
+        "stage": stage,
+        "rules": rules,
+        "fixtures_added": fixtures_added,
+        "message": f"Created '{name}' with {fixtures_added} fixtures" + (
+            "" if fixtures_added else ". No fixtures found — import UEFA JSON or add manually."
+        )
+    }

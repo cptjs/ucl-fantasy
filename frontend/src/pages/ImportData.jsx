@@ -1,16 +1,20 @@
 import React, { useState, useEffect } from 'react'
 import { useLang } from '../App'
-import { Upload, Trash2, CheckCircle, AlertCircle, Info } from 'lucide-react'
+import { Upload, Trash2, CheckCircle, AlertCircle, Info, Wand2, RefreshCw } from 'lucide-react'
 
 export default function ImportData() {
   const { t } = useLang()
   const [msg, setMsg] = useState('')
   const [msgType, setMsgType] = useState('success')
   const [loading, setLoading] = useState(false)
+  const [wizardLoading, setWizardLoading] = useState(false)
+  const [stages, setStages] = useState(null)
+  const [selectedStage, setSelectedStage] = useState('ko_playoffs')
   const [dashboard, setDashboard] = useState(null)
 
   useEffect(() => {
     fetch('/api/dashboard').then(r => r.json()).then(setDashboard).catch(() => {})
+    fetch('/api/rules').then(r => r.json()).then(d => setStages(d.all_stages)).catch(() => {})
   }, [msg])
 
   const flash = (text, type = 'success') => { setMsg(text); setMsgType(type); setTimeout(() => setMsg(''), 5000) }
@@ -78,6 +82,53 @@ export default function ImportData() {
           className="w-full bg-ucl-dark border border-ucl-accent/20 rounded-lg px-3 py-2 text-sm focus:border-ucl-accent focus:outline-none" />
       </div>
 
+
+      {/* New Matchday Wizard */}
+      <div className="bg-gradient-to-br from-purple-900/30 to-ucl-blue/20 border border-purple-500/20 rounded-xl p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <span className="text-2xl">🪄</span>
+          <h3 className="text-lg font-bold text-white">New Matchday Wizard</h3>
+        </div>
+        <p className="text-sm text-gray-400">
+          Creates a new matchday and auto-fetches fixtures from football-data.org.
+          Previous matchday is archived automatically.
+        </p>
+        
+        <div className="flex items-end gap-3">
+          <div className="flex-1">
+            <label className="text-xs text-gray-400 mb-1 block">Stage</label>
+            <select value={selectedStage} onChange={e => setSelectedStage(e.target.value)}
+              className="w-full bg-ucl-dark border border-ucl-accent/20 rounded-lg px-3 py-2 text-sm focus:border-purple-400 focus:outline-none">
+              {stages && Object.entries(stages).map(([key, s]) => (
+                <option key={key} value={key}>{s.label} (€{s.budget}M, {s.max_per_club}/club)</option>
+              ))}
+            </select>
+          </div>
+          <button
+            onClick={async () => {
+              if (!adminKey) { flash('❌ Enter admin key first', 'error'); return }
+              setWizardLoading(true)
+              try {
+                const r = await fetch(`/api/matchdays/wizard?stage=${selectedStage}`, {
+                  method: 'POST', headers: { 'X-Admin-Key': adminKey }
+                })
+                const d = await r.json()
+                if (r.ok) flash(`✅ ${d.message}`)
+                else flash(`❌ ${d.detail || 'Error'}`, 'error')
+              } catch { flash('❌ Wizard failed', 'error') }
+              setWizardLoading(false)
+            }}
+            disabled={wizardLoading}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold transition ${
+              wizardLoading ? 'bg-gray-600 text-gray-400' : 'bg-purple-600 hover:bg-purple-500 text-white'
+            }`}
+          >
+            <Wand2 size={18} />
+            {wizardLoading ? 'Creating...' : 'Create'}
+          </button>
+        </div>
+      </div>
+
       {/* UEFA JSON Import */}
       <div className="bg-gradient-to-br from-ucl-blue/40 to-ucl-blue/20 border border-ucl-accent/20 rounded-xl p-6 space-y-4">
         <div className="flex items-center gap-2">
@@ -125,6 +176,30 @@ export default function ImportData() {
           No need to create matchdays or fixtures manually.
         </p>
       </div>
+
+      {/* Fetch Results */}
+      <div className="bg-ucl-blue/20 border border-ucl-accent/10 rounded-xl p-5 flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-bold text-white">🔄 Fetch Match Results</h3>
+          <p className="text-xs text-gray-500 mt-1">Pull latest scores from football-data.org (auto-updates fixture statuses)</p>
+        </div>
+        <button
+          onClick={async () => {
+            setLoading(true)
+            try {
+              const r = await fetch('/api/fetch-results', { method: 'POST' })
+              const d = await r.json()
+              flash(`✅ Updated ${d.updated} fixtures`)
+            } catch { flash('❌ Fetch failed', 'error') }
+            setLoading(false)
+          }}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold bg-ucl-green/20 hover:bg-ucl-green/30 text-ucl-green border border-ucl-green/30 transition"
+        >
+          <RefreshCw size={16} />
+          Fetch
+        </button>
+      </div>
+
     </div>
   )
 }
