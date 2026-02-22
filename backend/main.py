@@ -1740,7 +1740,7 @@ def transfer_suggestions_multi():
     
     pred_map = {p["player_id"]: p for p in preds}
     
-    # Score each player: current prediction + future fixture ease
+    # Score each player: current prediction + future fixture ease + club quality
     def multi_md_score(player_id, club):
         current_pred = pred_map.get(player_id, {}).get("expected_points", 0)
         future_fixtures = upcoming_fixtures.get(club, [])
@@ -1748,13 +1748,18 @@ def transfer_suggestions_multi():
         if not future_fixtures:
             return current_pred
         
-        # Future ease score: average (6 - difficulty) across upcoming matchdays
+        # Future ease score
         future_ease = sum((6 - f["difficulty"]) for f in future_fixtures) / len(future_fixtures)
-        # Normalize to a multiplier (1.0 = average, higher = easier run)
-        ease_mult = future_ease / 3.0  # 3.0 is "average" (6-3=3)
+        ease_mult = future_ease / 3.0
         
-        # Blend: 60% current matchday, 40% fixture run
-        return current_pred * 0.6 + current_pred * ease_mult * 0.4
+        # Club strength factor: stronger clubs more likely to advance = more fixtures ahead
+        # Scale: strength 5.0 (elite) → 1.3x, strength 2.0 (weak) → 0.7x
+        club_str = get_club_strength(club)
+        advance_mult = 0.5 + club_str * 0.16  # 2.0→0.82, 3.0→0.98, 4.5→1.22, 5.0→1.3
+        
+        # Blend: 50% current, 25% fixture ease, 25% club quality (longevity)
+        score = current_pred * 0.50 + current_pred * ease_mult * 0.25 + current_pred * advance_mult * 0.25
+        return score
     
     # Analyze squad
     squad_analysis = []

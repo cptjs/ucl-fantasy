@@ -140,17 +140,17 @@ export default function FixtureCalendar() {
               <ClubLogo club={p.club} size={18} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-sm text-white font-medium truncate">{p.name}</span>
+                  <span className="text-base text-white font-medium truncate">{p.name}</span>
                   {p.in_squad && <span className="text-[8px] px-1 rounded bg-ucl-accent/20 text-ucl-accent">squad</span>}
                 </div>
-                <div className="text-[10px] text-gray-500">{p.reason}</div>
+                <div className="text-xs text-gray-400 mt-0.5">{p.reason}</div>
               </div>
               <div className="text-right shrink-0">
                 <div className="flex items-center gap-1">
                   <span className={`w-2 h-2 rounded-sm ${diffColors[p.fixture.difficulty]}`}></span>
-                  <span className="text-[10px] text-gray-500">{p.fixture.is_home?'H':'A'} {p.fixture.opponent}</span>
+                  <span className="text-xs text-gray-400">{p.fixture.is_home?'H':'A'} {p.fixture.opponent}</span>
                 </div>
-                <div className="text-xs text-gray-400">€{p.price}M · {p.avg_points}avg · <span className="text-ucl-gold font-bold">{p.hot_score}</span></div>
+                <div className="text-sm text-gray-400">€{p.price}M · {p.avg_points}avg · <span className="text-ucl-gold font-bold text-base">{p.hot_score}</span></div>
               </div>
             </div>
           ))}
@@ -174,18 +174,18 @@ export default function FixtureCalendar() {
             
             <div className="grid grid-cols-3 gap-3 mb-4">
               <div className="bg-ucl-dark/40 rounded-lg p-2 text-center">
-                <div className="text-xs text-gray-500">Avg Pts</div>
-                <div className="text-lg font-bold text-white">{playerForm.avg_points}</div>
+                <div className="text-sm text-gray-400">Avg Pts</div>
+                <div className="text-2xl font-bold text-white">{playerForm.avg_points}</div>
               </div>
               <div className="bg-ucl-dark/40 rounded-lg p-2 text-center">
-                <div className="text-xs text-gray-500">Form</div>
-                <div className={`text-lg font-bold ${playerForm.form_trend === 'rising' ? 'text-ucl-green' : playerForm.form_trend === 'falling' ? 'text-ucl-red' : 'text-gray-400'}`}>
+                <div className="text-sm text-gray-400">Form</div>
+                <div className={`text-2xl font-bold ${playerForm.form_trend === 'rising' ? 'text-ucl-green' : playerForm.form_trend === 'falling' ? 'text-ucl-red' : 'text-gray-400'}`}>
                   {playerForm.form_trend === 'rising' ? '📈' : playerForm.form_trend === 'falling' ? '📉' : '➡️'} {playerForm.form_trend}
                 </div>
               </div>
               <div className="bg-ucl-dark/40 rounded-lg p-2 text-center">
-                <div className="text-xs text-gray-500">Price</div>
-                <div className={`text-lg font-bold ${playerForm.price_trend === 'rising' ? 'text-ucl-green' : playerForm.price_trend === 'falling' ? 'text-ucl-red' : 'text-gray-400'}`}>
+                <div className="text-sm text-gray-400">Price</div>
+                <div className={`text-2xl font-bold ${playerForm.price_trend === 'rising' ? 'text-ucl-green' : playerForm.price_trend === 'falling' ? 'text-ucl-red' : 'text-gray-400'}`}>
                   {playerForm.price_trend === 'rising' ? '↑' : playerForm.price_trend === 'falling' ? '↓' : '='} €{playerForm.player.price}M
                 </div>
               </div>
@@ -194,16 +194,16 @@ export default function FixtureCalendar() {
             {playerForm.points_history.length > 0 && (
               <div>
                 <div className="text-xs text-gray-500 mb-2">Points per matchday</div>
-                <div className="flex items-end gap-1 h-24">
+                <div className="flex items-end gap-1.5 h-32">
                   {playerForm.points_history.map((ph, i) => {
                     const maxPts = Math.max(...playerForm.points_history.map(p => p.matchday_points), 1)
                     const height = Math.max(8, (ph.matchday_points / maxPts) * 100)
                     return (
                       <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
-                        <span className="text-[9px] text-gray-400">{ph.matchday_points}</span>
+                        <span className="text-xs text-gray-300 font-bold">{ph.matchday_points}</span>
                         <div className={`w-full rounded-t ${ph.matchday_points >= 8 ? 'bg-ucl-green' : ph.matchday_points >= 4 ? 'bg-ucl-accent' : 'bg-gray-600'}`}
                           style={{ height: `${height}%` }}></div>
-                        <span className="text-[8px] text-gray-600 truncate w-full text-center">{ph.matchday_name.replace('Knockout Play-offs','KO').slice(0,6)}</span>
+                        <span className="text-[10px] text-gray-500 truncate w-full text-center">{ph.matchday_name.replace('Knockout Play-offs','KO').slice(0,6)}</span>
                       </div>
                     )
                   })}
