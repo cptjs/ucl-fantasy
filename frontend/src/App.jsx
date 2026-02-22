@@ -51,8 +51,17 @@ export default function App() {
         {/* Header */}
         <header className="bg-gradient-to-r from-ucl-blue/90 to-ucl-blue/70 backdrop-blur-lg border-b border-ucl-accent/20 px-4 py-3.5 shadow-lg shadow-ucl-blue/20 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-3xl">⚽</span>
-            <h1 className="text-xl font-bold text-white">{t('title')}</h1>
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-ucl-accent to-blue-600 flex items-center justify-center shadow-lg shadow-ucl-accent/20">
+              <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-white">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                <path d="M12 2C12 2 14.5 6 14.5 12S12 22 12 22" stroke="currentColor" strokeWidth="1.5"/>
+                <path d="M12 2C12 2 9.5 6 9.5 12S12 22 12 22" stroke="currentColor" strokeWidth="1.5"/>
+                <path d="M2 12H22" stroke="currentColor" strokeWidth="1.5"/>
+                <path d="M3.5 7H20.5" stroke="currentColor" strokeWidth="1"/>
+                <path d="M3.5 17H20.5" stroke="currentColor" strokeWidth="1"/>
+              </svg>
+            </div>
+            <h1 className="text-xl font-bold text-white tracking-tight">{t('title')}</h1>
           </div>
           <button
             onClick={() => setLang(lang === 'en' ? 'ua' : 'en')}

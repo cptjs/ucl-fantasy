@@ -454,12 +454,15 @@ export default function MyTeam() {
       )}
 
       {/* Pitch */}
-      <div className="relative rounded-2xl overflow-hidden shadow-xl shadow-green-900/30" style={{ background: 'linear-gradient(180deg, #1a5e1a 0%, #228B22 30%, #1a7a1a 60%, #196619 100%)' }}>
-        <div className="absolute inset-0 opacity-20">
+      <div className="relative rounded-2xl overflow-hidden shadow-xl shadow-green-900/30" style={{ background: 'linear-gradient(180deg, #1a6e1a 0%, #228B22 25%, #1e8a1e 50%, #1a7a1a 75%, #166616 100%)' }}>
+        <div className="absolute inset-0 opacity-15">
           <div className="absolute top-1/2 left-0 right-0 h-px bg-white"></div>
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 border border-white rounded-full"></div>
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-28 h-28 border-2 border-white rounded-full"></div>
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-white rounded-full"></div>
+          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-48 h-16 border-2 border-white border-b-0 rounded-t-lg"></div>
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-16 border-2 border-white border-t-0 rounded-b-lg"></div>
         </div>
-        <div className="relative py-6 px-4 space-y-6">
+        <div className="relative py-8 px-6 space-y-8">
           <Row players={fwds} />
           <Row players={mids} />
           <Row players={defs} />
