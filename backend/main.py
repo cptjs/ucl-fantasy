@@ -1596,12 +1596,12 @@ def get_knockout_path():
                 home_players = conn.execute("""
                     SELECT COUNT(*) as c FROM my_squad ms JOIN players p ON p.id = ms.player_id 
                     WHERE p.club = ? OR p.club_code = ?
-                """, (f["home_club"], f.get("home_code", ""))).fetchone()["c"]
+                """, (f["home_club"], f["home_code"] if "home_code" in f.keys() else "")).fetchone()["c"]
                 
                 away_players = conn.execute("""
                     SELECT COUNT(*) as c FROM my_squad ms JOIN players p ON p.id = ms.player_id 
                     WHERE p.club = ? OR p.club_code = ?
-                """, (f["away_club"], f.get("away_code", ""))).fetchone()["c"]
+                """, (f["away_club"], f["away_code"] if "away_code" in f.keys() else "")).fetchone()["c"]
                 
                 ties.append({
                     "home_club": f["home_club"],
