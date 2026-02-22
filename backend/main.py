@@ -557,65 +557,163 @@ def set_lineup(req: SetLineupRequest):
 
 @app.get("/api/my-squad/suggestions")
 def transfer_suggestions():
-    """Suggest transfers based on current squad and predictions."""
+    """Smart transfer suggestions with reasoning."""
     with db_session() as conn:
-        # Get current squad
         squad = conn.execute("""
-            SELECT ms.player_id, p.name, p.club, p.position, p.price
+            SELECT ms.player_id, ms.is_starting, ms.is_captain, p.name, p.club, p.club_code, 
+                   p.position, p.price, p.avg_points, p.total_points, p.injury_status
             FROM my_squad ms JOIN players p ON p.id = ms.player_id
         """).fetchall()
         
         if not squad:
-            return {"suggestions": [], "message": "No squad set. Set your squad first."}
+            return {"suggestions": [], "summary": "No squad set.", "actions": []}
         
         squad_ids = set(s["player_id"] for s in squad)
-        squad_positions = {}
-        for s in squad:
-            squad_positions.setdefault(s["position"], []).append(dict(s))
         
-        # Get stage rules for budget
-        md = conn.execute("SELECT stage FROM matchdays WHERE is_active=1").fetchone()
+        md = conn.execute("SELECT * FROM matchdays WHERE is_active=1").fetchone()
         stage = md["stage"] if md else "ko_playoffs"
         rules = get_stage_rules(stage)
+        
+        # Count transfers already made
+        transfers_made = 0
+        if md:
+            transfers_made = conn.execute(
+                "SELECT COUNT(*) as c FROM transfers WHERE matchday_id=?", (md["id"],)
+            ).fetchone()["c"]
+        free_left = max(0, rules["free_transfers"] - transfers_made) if rules["free_transfers"] != "unlimited" else 99
     
-    # Get predictions
+    # Get predictions for upcoming matchday
     try:
         preds = get_predictions()
     except:
-        return {"suggestions": [], "message": "No predictions available"}
+        return {"suggestions": [], "summary": "No predictions available.", "actions": []}
     
     pred_map = {p["player_id"]: p for p in preds}
     
-    suggestions = []
+    # Analyze each squad player
+    squad_analysis = []
     for s in squad:
         s = dict(s)
-        s_pred = pred_map.get(s["player_id"], {}).get("expected_points", 0)
+        pred = pred_map.get(s["player_id"], {})
+        s["expected"] = pred.get("expected_points", 0)
+        s["fixture_info"] = pred.get("reasoning", [])
+        s["fixture_played"] = pred.get("fixture_played", False)
+        squad_analysis.append(s)
+    
+    # Find issues and opportunities
+    suggestions = []
+    injured = [s for s in squad_analysis if s["injury_status"] in ("out", "doubt")]
+    low_expected = sorted([s for s in squad_analysis if s["is_starting"] and s["expected"] <= 3 and s["injury_status"] == "fit"], key=lambda x: x["expected"])
+    
+    # For each weak spot, find the best replacement
+    targets = injured + low_expected[:3]  # prioritize injured, then lowest-expected starters
+    
+    for s in targets:
+        squad_cost = sum(sq["price"] for sq in squad_analysis)
+        budget_avail = rules["budget"] - squad_cost + s["price"]
         
-        # Find better players at same position within budget
-        squad_cost = sum(dict(sq)["price"] for sq in squad)
-        budget_left = rules["budget"] - squad_cost + s["price"]
-        
-        better = []
+        # Find best replacement (same position, not in squad)
+        candidates = []
         for p in preds:
             if p["player_id"] in squad_ids:
                 continue
             if p["position"] != s["position"]:
                 continue
-            if p["price"] > budget_left:
+            if p["expected_points"] <= s["expected"]:
                 continue
-            if p["expected_points"] > s_pred:
-                better.append({
+            
+            # Check club limit
+            club_count = sum(1 for sq in squad_analysis if sq["club"] == p.get("club", "") and sq["player_id"] != s["player_id"])
+            over_club = club_count >= rules["max_per_club"]
+            
+            over_budget = p["price"] > budget_avail
+            
+            reason_parts = []
+            if s["injury_status"] == "out":
+                reason_parts.append(f"{s['name']} is injured (OUT)")
+            elif s["injury_status"] == "doubt":
+                reason_parts.append(f"{s['name']} is doubtful")
+            else:
+                reason_parts.append(f"{s['name']} expected only {s['expected']} pts")
+            reason_parts.append(f"{p['name']} predicted {p['expected_points']} pts")
+            if p.get("reasoning"):
+                fix_info = [r for r in p["reasoning"] if "vs" in r]
+                if fix_info:
+                    reason_parts.append(fix_info[0])
+            
+            candidates.append({
+                "player_in": p,
+                "player_out": s,
+                "points_gain": round(p["expected_points"] - s["expected"]),
+                "cost_diff": round(p["price"] - s["price"], 1),
+                "reason": ". ".join(reason_parts),
+                "priority": "high" if s["injury_status"] in ("out", "doubt") else "medium",
+                "warning": "over budget" if over_budget else "club limit" if over_club else None,
+            })
+        
+        candidates.sort(key=lambda x: (-x["points_gain"], x["cost_diff"]))
+        suggestions.extend(candidates[:2])
+    
+    # Also add "upgrade" suggestions for bench/starters even if not injured
+    all_squad_sorted = sorted(squad_analysis, key=lambda x: x["expected"])
+    for s in all_squad_sorted[:5]:
+        if any(sg["player_out"]["player_id"] == s["player_id"] for sg in suggestions):
+            continue
+        squad_cost = sum(sq["price"] for sq in squad_analysis)
+        budget_avail = rules["budget"] - squad_cost + s["price"]
+        
+        best = None
+        for p in preds:
+            if p["player_id"] in squad_ids:
+                continue
+            if p["position"] != s["position"]:
+                continue
+            if p["expected_points"] <= s["expected"] + 2:  # only suggest if significant upgrade
+                continue
+            gain = p["expected_points"] - s["expected"]
+            if best is None or gain > best["points_gain"]:
+                best = {
                     "player_in": p,
                     "player_out": s,
-                    "points_gain": round(p["expected_points"] - s_pred),
+                    "points_gain": round(gain),
                     "cost_diff": round(p["price"] - s["price"], 1),
-                })
-        
-        better.sort(key=lambda x: -x["points_gain"])
-        suggestions.extend(better[:2])  # top 2 per position
+                    "reason": f"Upgrade: {p['name']} ({p['expected_points']} pts) over {s['name']} ({s['expected']} pts)",
+                    "priority": "low",
+                    "warning": None if p["price"] <= budget_avail else "over budget",
+                }
+        if best:
+            suggestions.append(best)
     
-    suggestions.sort(key=lambda x: -x["points_gain"])
-    return {"suggestions": suggestions[:10]}
+    suggestions.sort(key=lambda x: ({"high": 0, "medium": 1, "low": 2}[x["priority"]], -x["points_gain"]))
+    
+    # Build summary
+    total_expected = sum(s["expected"] * (2 if s["is_captain"] else 1) for s in squad_analysis if s["is_starting"])
+    injured_names = [s["name"] for s in injured]
+    
+    summary_parts = [f"Expected squad points: ~{round(total_expected)}"]
+    if injured_names:
+        summary_parts.append(f"⚠️ Injured: {', '.join(injured_names)}")
+    if free_left > 0:
+        summary_parts.append(f"Free transfers left: {free_left}")
+    else:
+        summary_parts.append(f"⚠️ No free transfers (-4 pts each)")
+    
+    # Top 3 actions as simple text
+    actions = []
+    for s in suggestions[:3]:
+        action = f"{'🔴' if s['priority']=='high' else '🟡' if s['priority']=='medium' else '🟢'} {s['player_out']['name']} → {s['player_in']['name']} (+{s['points_gain']} pts)"
+        if s.get("warning"):
+            action += f" ⚠️ {s['warning']}"
+        actions.append(action)
+    
+    return {
+        "suggestions": suggestions[:10],
+        "summary": " | ".join(summary_parts),
+        "actions": actions,
+        "total_expected": round(total_expected),
+        "injured": injured_names,
+        "free_transfers_left": free_left,
+    }
 
 
 # ─── Auto-fetch Results ───

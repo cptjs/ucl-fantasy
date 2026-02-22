@@ -156,7 +156,7 @@ export default function MyTeam() {
 
   const loadSuggestions = () => {
     fetch('/api/my-squad/suggestions').then(r => r.json()).then(d => {
-      setSuggestions(d.suggestions || [])
+      setSuggestions(d)
       setShowSuggestions(true)
     })
   }
@@ -196,10 +196,7 @@ export default function MyTeam() {
     const counts = buildCounts()
     if (counts[player.position] >= REQUIRED[player.position]) return
     if (buildSquad.length >= 15) return
-    if (player.price > buildBudget()) return
-    // Club limit
-    const clubCount = buildSquad.filter(p => p.club === player.club).length
-    if (clubCount >= maxPerClub) return
+    // No hard budget/club blocks — user is replicating their real team
     setBuildSquad([...buildSquad, { ...player, player_id: player.id }])
   }
 
@@ -278,9 +275,10 @@ export default function MyTeam() {
             {buildSquad.length}/15
           </div>
           <div className={`rounded-lg px-3 py-2 text-center text-sm font-bold ${
-            buildBudget() < 0 ? 'bg-ucl-red/20 text-ucl-red' : 'bg-ucl-gold/20 text-ucl-gold'
+            buildBudget() < 0 ? 'bg-ucl-red/20 text-ucl-red' : buildBudget() < 3 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-ucl-gold/20 text-ucl-gold'
           }`}>
             €{buildBudget().toFixed(1)}M
+            {buildBudget() < 0 && <div className="text-[9px] font-normal">over budget</div>}
           </div>
         </div>
 
@@ -335,7 +333,7 @@ export default function MyTeam() {
         <div className="space-y-1 max-h-[40vh] overflow-y-auto">
           {buildResults.map(p => {
             const counts2 = buildCounts()
-            const canAdd = buildSquad.length < 15 && counts2[p.position] < REQUIRED[p.position] && p.price <= buildBudget() && buildSquad.filter(s => s.club === p.club).length < maxPerClub
+            const canAdd = buildSquad.length < 15 && counts2[p.position] < REQUIRED[p.position]
             return (
               <button key={p.id} onClick={() => canAdd && addToBuild(p)} disabled={!canAdd}
                 className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition ${canAdd ? 'hover:bg-ucl-accent/10' : 'opacity-30'}`}>
@@ -347,6 +345,7 @@ export default function MyTeam() {
                 </div>
                 <span className="text-sm font-bold text-ucl-gold">€{p.price}M</span>
                 <span className="text-xs text-gray-500">{p.avg_points || 0} avg</span>
+                {buildSquad.filter(s => s.club === p.club).length >= maxPerClub && <span className="text-[9px] px-1 rounded bg-ucl-red/20 text-ucl-red">club limit</span>}
               </button>
             )
           })}
@@ -501,34 +500,74 @@ export default function MyTeam() {
       </div>
 
       {/* Transfer Suggestions */}
-      {showSuggestions && suggestions.length > 0 && (
-        <div className="bg-ucl-blue/20 border border-ucl-accent/10 rounded-xl p-5 space-y-3">
-          <h3 className="text-sm font-semibold text-ucl-accent flex items-center gap-2">
-            <Zap size={16} /> {t('transferSuggestions')}
-          </h3>
-          {suggestions.map((s, i) => (
-            <div key={i} className="flex items-center gap-3 py-2 px-3 rounded-lg bg-ucl-dark/30 hover:bg-ucl-dark/50 transition">
-              <div className="flex-1 flex items-center gap-2">
-                <span className="text-ucl-red text-sm">OUT</span>
-                <ClubLogo club={s.player_out.club} size={16} />
-                <span className="text-sm text-gray-400">{s.player_out.name}</span>
-              </div>
-              <ArrowLeftRight size={14} className="text-gray-500" />
-              <div className="flex-1 flex items-center gap-2">
-                <span className="text-ucl-green text-sm">IN</span>
-                <ClubLogo club={s.player_in.club} size={16} />
-                <span className="text-sm text-white font-medium">{s.player_in.name}</span>
-              </div>
-              <div className="text-right">
-                <div className="text-sm font-bold text-ucl-green">+{s.points_gain} pts</div>
-                <div className="text-[10px] text-gray-500">{s.cost_diff > 0 ? '+' : ''}{s.cost_diff}€M</div>
-              </div>
-              <button onClick={() => doTransfer(s.player_out.player_id, s.player_in.player_id)}
-                className="px-3 py-1 bg-ucl-accent/20 hover:bg-ucl-accent/30 text-ucl-accent rounded-lg text-xs font-medium transition">
-                Transfer
-              </button>
+      {showSuggestions && (
+        <div className="bg-ucl-blue/20 border border-ucl-accent/10 rounded-xl p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-ucl-accent flex items-center gap-2">
+              <Zap size={16} /> {t('transferSuggestions')}
+            </h3>
+            <button onClick={() => setShowSuggestions(false)} className="text-gray-500 hover:text-white text-xs">✕</button>
+          </div>
+          
+          {/* Summary bar */}
+          {suggestions.summary && (
+            <div className="text-xs text-gray-400 bg-ucl-dark/40 rounded-lg px-3 py-2">
+              {suggestions.summary}
             </div>
-          ))}
+          )}
+          
+          {/* Quick actions */}
+          {suggestions.actions?.length > 0 && (
+            <div className="space-y-1">
+              <div className="text-[10px] text-gray-500 uppercase tracking-wide">Recommended actions</div>
+              {suggestions.actions.map((a, i) => (
+                <div key={i} className="text-sm text-white px-3 py-2 bg-ucl-dark/30 rounded-lg">{a}</div>
+              ))}
+            </div>
+          )}
+          
+          {/* Detailed suggestions */}
+          {suggestions.suggestions?.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-[10px] text-gray-500 uppercase tracking-wide">Details</div>
+              {suggestions.suggestions.map((s, i) => (
+                <div key={i} className={`py-3 px-3 rounded-lg transition ${
+                  s.priority === 'high' ? 'bg-ucl-red/10 border border-ucl-red/20' : 
+                  s.priority === 'medium' ? 'bg-yellow-500/10 border border-yellow-500/20' : 
+                  'bg-ucl-dark/30 border border-ucl-accent/10'
+                }`}>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 flex items-center gap-2">
+                      <span className="text-ucl-red text-xs font-bold">OUT</span>
+                      <ClubLogo club={s.player_out.club} size={16} />
+                      <span className="text-sm text-gray-400">{s.player_out.name}</span>
+                      <span className="text-[10px] text-gray-600">€{s.player_out.price}M</span>
+                    </div>
+                    <ArrowLeftRight size={14} className="text-gray-500 shrink-0" />
+                    <div className="flex-1 flex items-center gap-2">
+                      <span className="text-ucl-green text-xs font-bold">IN</span>
+                      <ClubLogo club={s.player_in.club} size={16} />
+                      <span className="text-sm text-white font-medium">{s.player_in.name}</span>
+                      <span className="text-[10px] text-gray-600">€{s.player_in.price}M</span>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="text-sm font-bold text-ucl-green">+{s.points_gain}</div>
+                    </div>
+                    <button onClick={() => doTransfer(s.player_out.player_id, s.player_in.player_id)}
+                      className="px-3 py-1.5 bg-ucl-accent/20 hover:bg-ucl-accent/30 text-ucl-accent rounded-lg text-xs font-medium transition shrink-0">
+                      Do it
+                    </button>
+                  </div>
+                  {s.reason && <div className="text-[11px] text-gray-500 mt-1.5">{s.reason}</div>}
+                  {s.warning && <div className="text-[10px] text-yellow-400 mt-1">⚠️ {s.warning}</div>}
+                </div>
+              ))}
+            </div>
+          )}
+          
+          {(!suggestions.suggestions || suggestions.suggestions.length === 0) && (
+            <div className="text-center text-gray-500 text-sm py-4">Your squad looks good! No significant upgrades found.</div>
+          )}
         </div>
       )}
 
