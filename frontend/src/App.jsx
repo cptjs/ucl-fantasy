@@ -49,7 +49,7 @@ export default function App() {
     <LangContext.Provider value={{ lang, setLang, t }}>
       <div className="min-h-screen flex flex-col">
         {/* Header */}
-        <header className="bg-ucl-blue/80 backdrop-blur border-b border-ucl-accent/20 px-4 py-3 flex items-center justify-between">
+        <header className="bg-gradient-to-r from-ucl-blue/90 to-ucl-blue/70 backdrop-blur-lg border-b border-ucl-accent/20 px-4 py-3.5 shadow-lg shadow-ucl-blue/20 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span className="text-3xl">⚽</span>
             <h1 className="text-xl font-bold text-white">{t('title')}</h1>
@@ -71,7 +71,7 @@ export default function App() {
               onClick={() => setTab(id)}
               className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition whitespace-nowrap border-b-2 ${
                 tab === id
-                  ? 'border-ucl-accent text-ucl-accent'
+                  ? 'border-ucl-accent text-ucl-accent bg-ucl-accent/10'
                   : 'border-transparent text-gray-400 hover:text-white hover:border-gray-500'
               }`}
             >

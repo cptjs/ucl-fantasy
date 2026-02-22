@@ -63,7 +63,7 @@ export default function Compare() {
                   {searchResults.filter(p => !selectedIds.includes(p.id)).map(p => (
                     <button key={p.id} onClick={() => addPlayer(p.id)}
                       className="w-full flex items-center gap-2 px-3 py-2 hover:bg-ucl-accent/10 text-left text-sm">
-                      <span className={`text-[10px] font-bold ${posColors[p.position]}`}>{p.position}</span>
+                      <span className={`text-xs font-bold ${posColors[p.position]}`}>{p.position}</span>
                       <ClubLogo club={p.club} size={16} />
                       <span className="text-white flex-1">{p.name}</span>
                       <span className="text-xs text-gray-500">€{p.price}M</span>
@@ -88,8 +88,8 @@ export default function Compare() {
                   <ClubLogo club={p.player.club} size={16} />
                   <span className="text-xs font-bold text-white truncate">{p.player.name.split(' ').pop()}</span>
                 </div>
-                <div className="text-[10px] text-gray-500">{p.player.position} · €{p.player.price}M</div>
-                <div className="grid grid-cols-3 gap-1 mt-1.5 text-[10px]">
+                <div className="text-xs text-gray-500">{p.player.position} · €{p.player.price}M</div>
+                <div className="grid grid-cols-3 gap-1 mt-1.5 text-xs">
                   <div><div className="text-gray-500">Total</div><div className="font-bold text-white">{p.total_points}</div></div>
                   <div><div className="text-gray-500">Avg</div><div className="font-bold" style={{ color: lineColors[i] }}>{p.avg_points}</div></div>
                   <div><div className="text-gray-500">Max</div><div className="font-bold text-white">{p.max_points}</div></div>
@@ -106,7 +106,7 @@ export default function Compare() {
               if (!hasData) return null
               return (
                 <div key={md.id} className="flex items-center gap-2">
-                  <div className="text-[10px] text-gray-600 w-16 text-right truncate">{md.name.replace('Knockout Play-offs','KO').slice(0,10)}</div>
+                  <div className="text-xs text-gray-600 w-16 text-right truncate">{md.name.replace('Knockout Play-offs','KO').slice(0,10)}</div>
                   <div className="flex-1 flex items-center gap-0.5 h-6">
                     {data.players.map((p, i) => {
                       const pts = p.points_by_matchday[md.id]
@@ -115,7 +115,7 @@ export default function Compare() {
                       return (
                         <div key={i} className="h-full flex items-center" style={{ flex: 1 }}>
                           <div className="h-4 rounded-sm relative group" style={{ width: `${width}%`, backgroundColor: lineColors[i] }}>
-                            <span className="absolute -top-4 left-0 text-[9px] font-bold" style={{ color: lineColors[i] }}>{pts}</span>
+                            <span className="absolute -top-4 left-0 text-xs font-bold" style={{ color: lineColors[i] }}>{pts}</span>
                           </div>
                         </div>
                       )

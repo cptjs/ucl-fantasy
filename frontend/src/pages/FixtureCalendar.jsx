@@ -77,9 +77,9 @@ export default function FixtureCalendar() {
                 <tr className="border-b border-ucl-accent/10">
                   <th className="text-left py-2 px-3 text-gray-400 text-xs sticky left-0 bg-ucl-dark z-10 min-w-[130px]">Club</th>
                   {calendar.matchdays.map(md => (
-                    <th key={md.id} className={`py-2 px-1 text-center text-[10px] min-w-[85px] ${md.is_active ? 'text-ucl-accent' : 'text-gray-600'}`}>
+                    <th key={md.id} className={`py-2 px-1 text-center text-xs min-w-[85px] ${md.is_active ? 'text-ucl-accent' : 'text-gray-600'}`}>
                       {md.name.replace('Knockout Play-offs','KO').replace('Round of 16','R16')}
-                      {md.is_active && <span className="block text-ucl-accent text-[9px]">● now</span>}
+                      {md.is_active && <span className="block text-ucl-accent text-xs">● now</span>}
                     </th>
                   ))}
                 </tr>
@@ -101,10 +101,10 @@ export default function FixtureCalendar() {
                           <div className={fix.status === 'played' ? 'opacity-50' : ''}>
                             <div className="flex items-center justify-center gap-1">
                               <span className={`w-2 h-2 rounded-sm ${diffColors[fix.difficulty]}`}></span>
-                              <span className={`text-[10px] font-bold ${diffText[fix.difficulty]}`}>{fix.difficulty}</span>
+                              <span className={`text-xs font-bold ${diffText[fix.difficulty]}`}>{fix.difficulty}</span>
                             </div>
-                            <div className="text-[9px] text-gray-500">{fix.is_home?'H':'A'} {fix.opponent.length>9?fix.opponent.slice(0,7)+'..':fix.opponent}</div>
-                            {fix.status === 'played' && fix.score && <div className="text-[9px] text-gray-600">{fix.score}</div>}
+                            <div className="text-xs text-gray-500">{fix.is_home?'H':'A'} {fix.opponent.length>9?fix.opponent.slice(0,7)+'..':fix.opponent}</div>
+                            {fix.status === 'played' && fix.score && <div className="text-xs text-gray-600">{fix.score}</div>}
                           </div>
                         </td>
                       )
@@ -136,12 +136,12 @@ export default function FixtureCalendar() {
                 p.in_squad ? 'bg-ucl-accent/5 border border-ucl-accent/20' : 'bg-ucl-blue/10 hover:bg-ucl-blue/20'
               }`}>
               <span className="text-gray-600 text-xs w-4 text-right">{i+1}</span>
-              <span className={`px-1 py-0.5 rounded text-[9px] font-bold ${posBadge[p.position]}`}>{p.position}</span>
+              <span className={`px-1 py-0.5 rounded text-xs font-bold ${posBadge[p.position]}`}>{p.position}</span>
               <ClubLogo club={p.club} size={18} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className="text-base text-white font-medium truncate">{p.name}</span>
-                  {p.in_squad && <span className="text-[8px] px-1 rounded bg-ucl-accent/20 text-ucl-accent">squad</span>}
+                  {p.in_squad && <span className="text-xs px-1 rounded bg-ucl-accent/20 text-ucl-accent">squad</span>}
                 </div>
                 <div className="text-xs text-gray-400 mt-0.5">{p.reason}</div>
               </div>
@@ -160,7 +160,7 @@ export default function FixtureCalendar() {
       {/* ───── PLAYER FORM MODAL ───── */}
       {playerForm && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setPlayerForm(null)}>
-          <div className="bg-ucl-blue border border-ucl-accent/20 rounded-2xl max-w-md w-full p-5" onClick={e => e.stopPropagation()}>
+          <div className="bg-ucl-blue border border-ucl-accent/20 rounded-2xl shadow-2xl shadow-black/50 max-w-md w-full p-5" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <ClubLogo club={playerForm.player.club} size={28} />
@@ -203,7 +203,7 @@ export default function FixtureCalendar() {
                         <span className="text-xs text-gray-300 font-bold">{ph.matchday_points}</span>
                         <div className={`w-full rounded-t ${ph.matchday_points >= 8 ? 'bg-ucl-green' : ph.matchday_points >= 4 ? 'bg-ucl-accent' : 'bg-gray-600'}`}
                           style={{ height: `${height}%` }}></div>
-                        <span className="text-[10px] text-gray-500 truncate w-full text-center">{ph.matchday_name.replace('Knockout Play-offs','KO').slice(0,6)}</span>
+                        <span className="text-xs text-gray-500 truncate w-full text-center">{ph.matchday_name.replace('Knockout Play-offs','KO').slice(0,6)}</span>
                       </div>
                     )
                   })}
@@ -228,7 +228,7 @@ export default function FixtureCalendar() {
               <div className="space-y-1">
                 {priceChanges.risers.map((p, i) => (
                   <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-500/5 border border-green-500/10">
-                    <span className={`px-1 py-0.5 rounded text-[9px] font-bold ${posBadge[p.position]}`}>{p.position}</span>
+                    <span className={`px-1 py-0.5 rounded text-xs font-bold ${posBadge[p.position]}`}>{p.position}</span>
                     <span className="text-sm text-white flex-1">{p.name}</span>
                     <span className="text-xs text-gray-500">{p.club}</span>
                     <span className="text-xs text-gray-400">€{p.old_price}M</span>
@@ -245,7 +245,7 @@ export default function FixtureCalendar() {
               <div className="space-y-1">
                 {priceChanges.fallers.map((p, i) => (
                   <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/5 border border-red-500/10">
-                    <span className={`px-1 py-0.5 rounded text-[9px] font-bold ${posBadge[p.position]}`}>{p.position}</span>
+                    <span className={`px-1 py-0.5 rounded text-xs font-bold ${posBadge[p.position]}`}>{p.position}</span>
                     <span className="text-sm text-white flex-1">{p.name}</span>
                     <span className="text-xs text-gray-500">{p.club}</span>
                     <span className="text-xs text-gray-400">€{p.old_price}M</span>
@@ -282,7 +282,7 @@ export default function FixtureCalendar() {
                           <ClubLogo club={tie.home_club} size={22} />
                           <div className="flex-1">
                             <div className="text-sm text-white font-medium">{tie.home_club}</div>
-                            <div className="text-[10px] text-gray-500">
+                            <div className="text-xs text-gray-500">
                               {Math.round(tie.home_advance_prob * 100)}% advance
                               {tie.home_squad_players > 0 && <span className="text-ucl-accent ml-1">({tie.home_squad_players} in squad)</span>}
                             </div>
@@ -296,7 +296,7 @@ export default function FixtureCalendar() {
                           ) : (
                             <div className="text-xs text-gray-500">vs</div>
                           )}
-                          <div className="text-[9px] text-gray-600">{tie.status === 'played' ? 'FT' : ''}</div>
+                          <div className="text-xs text-gray-600">{tie.status === 'played' ? 'FT' : ''}</div>
                         </div>
                         
                         {/* Away */}
@@ -304,7 +304,7 @@ export default function FixtureCalendar() {
                           <ClubLogo club={tie.away_club} size={22} />
                           <div className="flex-1 text-right">
                             <div className="text-sm text-white font-medium">{tie.away_club}</div>
-                            <div className="text-[10px] text-gray-500">
+                            <div className="text-xs text-gray-500">
                               {tie.away_squad_players > 0 && <span className="text-ucl-accent mr-1">({tie.away_squad_players} in squad)</span>}
                               {Math.round(tie.away_advance_prob * 100)}% advance
                             </div>

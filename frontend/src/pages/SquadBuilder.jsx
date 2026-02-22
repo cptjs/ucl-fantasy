@@ -24,13 +24,13 @@ function PitchPlayer({ p, small }) {
         isCap ? 'ring-2 ring-ucl-gold ring-offset-2 ring-offset-ucl-dark' : ''
       }`}>
         {isCap && <Crown size={12} className="absolute -top-2 -right-1 text-ucl-gold fill-ucl-gold" />}
-        <span className="text-[10px]">{p.position}</span>
+        <span className="text-xs">{p.position}</span>
       </div>
       <div className="mt-1 text-center">
         <div className={`text-xs font-semibold text-white leading-tight ${small ? 'max-w-14' : 'max-w-18'} truncate`}>
           {p.name.split(' ').pop()}
         </div>
-        <div className="text-[10px] text-ucl-accent font-bold">{p.expected_points.toFixed(1)}</div>
+        <div className="text-xs text-ucl-accent font-bold">{p.expected_points.toFixed(1)}</div>
       </div>
     </div>
   )

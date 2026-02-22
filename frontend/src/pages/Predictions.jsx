@@ -16,7 +16,7 @@ function PlayerRow({ p, i, expanded, setExpanded, isPast, t }) {
     <div className="bg-ucl-blue/20 border border-ucl-accent/10 rounded-xl overflow-hidden hover:border-ucl-accent/25 transition">
       <div className="flex items-center gap-2 px-3 py-2.5 cursor-pointer" onClick={toggleExp}>
         <span className="text-gray-600 w-5 text-right text-xs">{i + 1}</span>
-        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${posColors[p.position]}`}>{p.position}</span>
+        <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${posColors[p.position]}`}>{p.position}</span>
         <ClubLogo club={p.club} size={18} />
         <div className="flex-1 min-w-0">
           <span className={`font-medium text-sm ${isPast ? 'text-gray-400' : 'text-white'}`}>{p.name}</span>
@@ -26,12 +26,12 @@ function PlayerRow({ p, i, expanded, setExpanded, isPast, t }) {
         <div className={`w-1.5 h-1.5 rounded-full ${riskDot[p.risk_level]}`}></div>
         <div className="text-right flex items-center gap-2 justify-end min-w-[80px]">
           <div className="text-right">
-            <span className="text-[10px] text-gray-500 block">pred</span>
+            <span className="text-xs text-gray-500 block">pred</span>
             <span className={`text-sm font-medium ${isPast ? 'text-gray-500' : 'text-ucl-accent font-bold'}`}>{p.expected_points}</span>
           </div>
           {isPast && (
             <div className="text-right">
-              <span className="text-[10px] text-ucl-accent block">fact</span>
+              <span className="text-xs text-ucl-accent block">fact</span>
               {p.actual_points != null ? (
                 <span className={`text-base font-bold ${p.actual_points > p.expected_points ? 'text-ucl-green' : p.actual_points < p.expected_points ? 'text-ucl-red' : 'text-white'}`}>{p.actual_points}</span>
               ) : (
@@ -40,7 +40,7 @@ function PlayerRow({ p, i, expanded, setExpanded, isPast, t }) {
             </div>
           )}
           {!isPast && (
-            <span className="text-[10px] text-gray-500 w-10 text-right">{p.points_per_million}/M</span>
+            <span className="text-xs text-gray-500 w-10 text-right">{p.points_per_million}/M</span>
           )}
         </div>
         {isExp ? <ChevronUp size={14} className="text-gray-500" /> : <ChevronDown size={14} className="text-gray-500" />}

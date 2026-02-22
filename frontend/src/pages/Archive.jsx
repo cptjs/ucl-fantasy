@@ -64,7 +64,7 @@ export default function Archive() {
                   <div className="text-right">
                     <div className="text-lg font-bold text-ucl-accent">{netPoints} pts</div>
                     {md.penalty_points > 0 && (
-                      <div className="text-[10px] text-ucl-red">-{md.penalty_points} penalty</div>
+                      <div className="text-xs text-ucl-red">-{md.penalty_points} penalty</div>
                     )}
                   </div>
                 )}
@@ -127,7 +127,7 @@ export default function Archive() {
                       {md.top_performers.map((p, i) => (
                         <div key={i} className="flex items-center gap-2 py-1 px-2 rounded hover:bg-ucl-dark/30 transition">
                           <span className="text-gray-600 text-xs w-4 text-right">{i + 1}</span>
-                          <span className={`text-[10px] font-bold ${posColors[p.position]}`}>{p.position}</span>
+                          <span className={`text-xs font-bold ${posColors[p.position]}`}>{p.position}</span>
                           <span className="text-sm text-white flex-1 truncate">{p.name}</span>
                           <span className="text-xs text-gray-500">{p.club}</span>
                           <span className="text-sm font-bold text-ucl-accent w-10 text-right">{p.matchday_points}</span>

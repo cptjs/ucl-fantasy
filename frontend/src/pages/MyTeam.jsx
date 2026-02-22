@@ -33,7 +33,7 @@ function PitchPlayer({ p, onSelect, selected }) {
         <div className="text-xs font-semibold text-white leading-tight max-w-18 truncate">
           {p.name.split(' ').pop()}
         </div>
-        <div className="text-[10px] text-gray-400">{p.avg_points || 0} avg</div>
+        <div className="text-xs text-gray-400">{p.avg_points || 0} avg</div>
       </div>
     </div>
   )
@@ -64,7 +64,7 @@ function TransferModal({ player, onClose, onTransfer }) {
 
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-ucl-blue border border-ucl-accent/20 rounded-2xl max-w-lg w-full max-h-[80vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+      <div className="bg-ucl-blue border border-ucl-accent/20 rounded-2xl shadow-2xl shadow-black/50 max-w-lg w-full max-h-[80vh] overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className="p-4 border-b border-ucl-accent/10">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-white font-bold">Replace {player.name}</h3>
@@ -94,7 +94,7 @@ function TransferModal({ player, onClose, onTransfer }) {
               </div>
               <div className="text-right">
                 <div className="text-sm font-bold text-ucl-gold">€{c.price}M</div>
-                <div className="text-[10px] text-gray-500">{c.avg_points || 0} avg</div>
+                <div className="text-xs text-gray-500">{c.avg_points || 0} avg</div>
               </div>
             </button>
           ))}
@@ -282,7 +282,7 @@ export default function MyTeam() {
             buildBudget() < 0 ? 'bg-ucl-red/20 text-ucl-red' : buildBudget() < 3 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-ucl-gold/20 text-ucl-gold'
           }`}>
             €{buildBudget().toFixed(1)}M
-            {buildBudget() < 0 && <div className="text-[9px] font-normal">over budget</div>}
+            {buildBudget() < 0 && <div className="text-xs font-normal">over budget</div>}
           </div>
         </div>
 
@@ -305,7 +305,7 @@ export default function MyTeam() {
                       <button onClick={() => { 
                         const pid = p.id || p.player_id;
                         buildCaptain === pid ? setBuildCaptain(null) : setBuildCaptain(pid)
-                      }} className={`text-[10px] px-1 rounded ${buildCaptain === (p.id || p.player_id) ? 'bg-ucl-gold text-black font-bold' : 'text-gray-500 hover:text-ucl-gold'}`}>
+                      }} className={`text-xs px-1 rounded ${buildCaptain === (p.id || p.player_id) ? 'bg-ucl-gold text-black font-bold' : 'text-gray-500 hover:text-ucl-gold'}`}>
                         C
                       </button>
                       <button onClick={() => removeFromBuild(p.id || p.player_id)} className="text-gray-500 hover:text-ucl-red">✕</button>
@@ -341,7 +341,7 @@ export default function MyTeam() {
             return (
               <button key={p.id} onClick={() => canAdd && addToBuild(p)} disabled={!canAdd}
                 className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition ${canAdd ? 'hover:bg-ucl-accent/10' : 'opacity-30'}`}>
-                <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${posBadge[p.position]}`}>{p.position}</span>
+                <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${posBadge[p.position]}`}>{p.position}</span>
                 <ClubLogo club={p.club} size={18} />
                 <div className="flex-1 min-w-0">
                   <span className="text-sm text-white font-medium truncate block">{p.name}</span>
@@ -349,7 +349,7 @@ export default function MyTeam() {
                 </div>
                 <span className="text-sm font-bold text-ucl-gold">€{p.price}M</span>
                 <span className="text-xs text-gray-500">{p.avg_points || 0} avg</span>
-                {buildSquad.filter(s => s.club === p.club).length >= maxPerClub && <span className="text-[9px] px-1 rounded bg-ucl-red/20 text-ucl-red">club limit</span>}
+                {buildSquad.filter(s => s.club === p.club).length >= maxPerClub && <span className="text-xs px-1 rounded bg-ucl-red/20 text-ucl-red">club limit</span>}
               </button>
             )
           })}
@@ -454,7 +454,7 @@ export default function MyTeam() {
       )}
 
       {/* Pitch */}
-      <div className="relative rounded-2xl overflow-hidden" style={{ background: 'linear-gradient(180deg, #1a5e1a 0%, #228B22 30%, #1a7a1a 60%, #196619 100%)' }}>
+      <div className="relative rounded-2xl overflow-hidden shadow-xl shadow-green-900/30" style={{ background: 'linear-gradient(180deg, #1a5e1a 0%, #228B22 30%, #1a7a1a 60%, #196619 100%)' }}>
         <div className="absolute inset-0 opacity-20">
           <div className="absolute top-1/2 left-0 right-0 h-px bg-white"></div>
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 border border-white rounded-full"></div>
@@ -465,7 +465,7 @@ export default function MyTeam() {
           <Row players={defs} />
           <Row players={gks} />
         </div>
-        <div className="absolute bottom-2 left-0 right-0 text-center text-[10px] text-white/30">
+        <div className="absolute bottom-2 left-0 right-0 text-center text-xs text-white/40 font-medium">
           Tap a player to make a transfer
         </div>
       </div>
@@ -526,10 +526,10 @@ export default function MyTeam() {
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-lg">{b.name === 'limitless' ? '♾️' : '🃏'}</span>
                     <span className="text-sm font-bold text-white capitalize">{b.name}</span>
-                    {isActive && <span className="text-[9px] px-1.5 rounded bg-purple-500/30 text-purple-300">ACTIVE</span>}
-                    {used && <span className="text-[9px] px-1.5 rounded bg-gray-600 text-gray-400">USED</span>}
+                    {isActive && <span className="text-xs px-1.5 rounded bg-purple-500/30 text-purple-300">ACTIVE</span>}
+                    {used && <span className="text-xs px-1.5 rounded bg-gray-600 text-gray-400">USED</span>}
                   </div>
-                  <p className="text-[10px] text-gray-500 mb-2">
+                  <p className="text-xs text-gray-500 mb-2">
                     {b.name === 'limitless' ? 'Unlimited transfers for 1 matchday (squad reverts after)' : 'Full squad rebuild without penalty'}
                   </p>
                   {b.is_available && !isActive && (
@@ -575,7 +575,7 @@ export default function MyTeam() {
           {/* Quick actions */}
           {suggestions.actions?.length > 0 && (
             <div className="space-y-1">
-              <div className="text-[10px] text-gray-500 uppercase tracking-wide">Recommended actions</div>
+              <div className="text-xs text-gray-500 uppercase tracking-wide">Recommended actions</div>
               {suggestions.actions.map((a, i) => (
                 <div key={i} className="text-sm text-white px-3 py-2 bg-ucl-dark/30 rounded-lg">{a}</div>
               ))}
@@ -585,7 +585,7 @@ export default function MyTeam() {
           {/* Detailed suggestions */}
           {suggestions.suggestions?.length > 0 && (
             <div className="space-y-2">
-              <div className="text-[10px] text-gray-500 uppercase tracking-wide">Details</div>
+              <div className="text-xs text-gray-500 uppercase tracking-wide">Details</div>
               {suggestions.suggestions.map((s, i) => (
                 <div key={i} className={`py-3 px-3 rounded-lg transition ${
                   s.priority === 'high' ? 'bg-ucl-red/10 border border-ucl-red/20' : 
@@ -597,14 +597,14 @@ export default function MyTeam() {
                       <span className="text-ucl-red text-xs font-bold">OUT</span>
                       <ClubLogo club={s.player_out.club} size={16} />
                       <span className="text-sm text-gray-400">{s.player_out.name}</span>
-                      <span className="text-[10px] text-gray-600">€{s.player_out.price}M</span>
+                      <span className="text-xs text-gray-600">€{s.player_out.price}M</span>
                     </div>
                     <ArrowLeftRight size={14} className="text-gray-500 shrink-0" />
                     <div className="flex-1 flex items-center gap-2">
                       <span className="text-ucl-green text-xs font-bold">IN</span>
                       <ClubLogo club={s.player_in.club} size={16} />
                       <span className="text-sm text-white font-medium">{s.player_in.name}</span>
-                      <span className="text-[10px] text-gray-600">€{s.player_in.price}M</span>
+                      <span className="text-xs text-gray-600">€{s.player_in.price}M</span>
                     </div>
                     <div className="text-right shrink-0">
                       <div className="text-sm font-bold text-ucl-green">+{s.points_gain}</div>
@@ -614,8 +614,8 @@ export default function MyTeam() {
                       Do it
                     </button>
                   </div>
-                  {s.reason && <div className="text-[11px] text-gray-500 mt-1.5">{s.reason}</div>}
-                  {s.warning && <div className="text-[10px] text-yellow-400 mt-1">⚠️ {s.warning}</div>}
+                  {s.reason && <div className="text-xs text-gray-500 mt-1.5">{s.reason}</div>}
+                  {s.warning && <div className="text-xs text-yellow-400 mt-1">⚠️ {s.warning}</div>}
                 </div>
               ))}
             </div>
